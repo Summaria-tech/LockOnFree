@@ -91,7 +91,7 @@ async def check_and_send(bot):
     
     if res.status_code == 200:
         games = res.json()
-        for game in reversed(games[:5]):
+        for game in reversed(games[:100]):
             game_id = str(game['id'])
             if game_id not in sent_ids:
                 genre_list = get_detailed_genres(game)
@@ -123,3 +123,4 @@ async def on_ready():
 if __name__ == "__main__":
     if TOKEN and CHANNEL_ID:
         bot.run(TOKEN)
+
