@@ -12,49 +12,57 @@ def get_sent_games():
 def save_sent_game(game_id):
     with open(DB_FILE, 'a') as f: f.write(f"{game_id}\n")
 
-def get_steam_genres(steam_url):
-    """ฟังก์ชันพิเศษ: เข้าไปดูที่หน้า Steam เพื่อดึงแนวเกมภาษาไทย"""
-    if "steampowered.com" not in steam_url:
-        return None
-    try:
-        # หลอกว่าเป็นเบราว์เซอร์และขอเป็นภาษาไทย
-        headers = {'User-Agent': 'Mozilla/5.0', 'Cookie': 'birthtime=283993201; lastseenprev=1; steamCountry=TH%7C50468305963f46f40c749c95d852a326'}
-        res = requests.get(steam_url, headers=headers, timeout=10)
-        soup = BeautifulSoup(res.text, 'html.parser')
-        
-        # ค้นหาแท็กแนวเกมในหน้า Steam
-        genre_tags = soup.find_all('a', {'class': 'app_tag'})
-        genres = [tag.get_text().strip() for tag in genre_tags[:5]] # เอา 5 แนวเกมแรก
-        return ", ".join(genres) if genres else None
-    except:
-        return None
+def get_smart_genre(game):
+    """วิเคราะห์แนวเกมจากทั้ง Steam Tags และ Description ของค่ายอื่น"""
+    desc = game['description'].lower()
+    url = game['open_giveaway_url']
+    
+    # 1. ถ้าเป็น Steam ให้ลองไปขูด Tags มาก่อน
+    if "steampowered.com" in url:
+        try:
+            headers = {'User-Agent': 'Mozilla/5.0', 'Cookie': 'birthtime=283993201; lastseenprev=1; steamCountry=TH'}
+            res = requests.get(url, headers=headers, timeout=5)
+            soup = BeautifulSoup(res.text, 'html.parser')
+            tags = [tag.get_text().strip() for tag in soup.find_all('a', {'class': 'app_tag'})[:4]]
+            if tags: return ", ".join(tags)
+        except: pass
+
+    # 2. ถ้าไม่ใช่ Steam หรือดึงไม่ได้ ให้ใช้ระบบ Keyword Mapping (ครอบคลุมทุกค่าย)
+    keywords = {
+        "สวมบทบาท (RPG)": ["rpg", "role-playing", "souls", "level up"],
+        "แอคชั่น (Action)": ["action", "hack", "slash", "fighting", "combat"],
+        "ผจญภัย (Adventure)": ["adventure", "puzzle", "narrative", "visual novel", "2d"],
+        "วางแผน (Strategy)": ["strategy", "tactic", "moba", "card", "tower defense"],
+        "จำลองสถานการณ์ (Simulation)": ["simulation", "sim", "management", "building", "sandbox"],
+        "ยิง (Shooting)": ["shooter", "fps", "tps", "gun", "warfare"],
+        "สยองขวัญ (Horror)": ["horror", "scary", "spooky", "survival horror"],
+        "เอาชีวิตรอด (Survival)": ["survival", "crafting", "open world"]
+    }
+
+    found_genres = []
+    for genre, keys in keywords.items():
+        if any(k in desc for k in keys):
+            found_genres.append(genre)
+    
+    return ", ".join(found_genres) if found_genres else f"อื่นๆ ({game['type']})"
 
 def send_to_discord(game):
-    # พยายามดึงแนวเกมจาก Steam ก่อน
-    steam_genres = get_steam_genres(game['open_giveaway_url'])
-    
-    # ถ้าไม่ใช่เกม Steam หรือดึงไม่ได้ ให้ใช้ระบบ Keyword ภาษาไทยที่เราทำไว้
-    if not steam_genres:
-        genre_display = f"อื่นๆ ({game['type']})"
-        # (คุณสามารถใส่ Logic get_genre_thai อันเดิมมาช่วยตรงนี้ได้)
-    else:
-        genre_display = steam_genres
-
+    genre_display = get_smart_genre(game)
     img_url = game.get('thumbnail', '')
     
     payload = {
         "embeds": [{
             "title": f"🎮 {game['title']}",
             "url": game['open_giveaway_url'],
-            "color": 1752220,
+            "color": 2303786, # สีเทาเข้มโทนเกมมิ่ง
             "thumbnail": {"url": img_url}, 
             "fields": [
-                {"name": "📂 แนวเกม (Steam Tags)", "value": f"`{genre_display}`", "inline": False},
-                {"name": "💻 แพลตฟอร์ม", "value": f"`{game['platforms']}`", "inline": True},
+                {"name": "📂 แนวเกม", "value": f"`{genre_display}`", "inline": False},
+                {"name": "💻 แพลตฟอร์ม", "value": f"**{game['platforms']}**", "inline": True},
                 {"name": "💰 มูลค่า", "value": f"~~{game['worth']}~~ **FREE**", "inline": True}
             ],
-            "description": f"📝 {game['description'][:150]}...",
-            "footer": {"text": "Steam Data Scraper Active • GamerPower"}
+            "description": f"📝 {game['description'][:160]}...",
+            "footer": {"text": "Multi-Platform Game Tracker • GamerPower"}
         }]
     }
     requests.post(WEBHOOK_URL, json=payload)
@@ -66,11 +74,10 @@ def check_and_run():
         res = requests.get(api_url)
         if res.status_code == 200:
             games = res.json()
-            for game in reversed(games[:10]):
-                game_id = str(game['id'])
-                if game_id not in sent_ids:
+            for game in reversed(games[:5]): # รัน 5 เกมล่าสุด
+                if str(game['id']) not in sent_ids:
                     send_to_discord(game)
-                    save_sent_game(game_id)
+                    save_sent_game(str(game['id']))
     except Exception as e:
         print(f"Error: {e}")
 
