@@ -99,8 +99,25 @@ async def check_and_send(bot):
                 new_game_count += 1
                 print(f"✅ Sent: {game['title']}")
 
-    # --- ส่วนที่ต้องแก้ในฟังก์ชัน check_and_send ---
+ # --- ส่วนที่แก้แล้ว: ส่ง Status ทุกครั้งไม่ว่าจะเจอเกมใหม่หรือไม่ ---
+    now_th = datetime.utcnow() + timedelta(hours=7)
+    time_str = now_th.strftime("%H:%M")
+    date_str = now_th.strftime("%d/%m/%Y")
+
+    status_embed = discord.Embed(title="🤖 Bot Status: Online", color=0x2ecc71)
+    status_msg = f"🔍 **ตรวจสอบรอบที่:** {time_str}\n📅 **วันที่:** {date_str}\n\n"
     
+    if new_game_count > 0:
+        status_msg += f"✅ **พบเกมฟรีใหม่ {new_game_count} เกม!**"
+    else:
+        status_msg += "✅ **ตรวจสอบแล้ว: ยังไม่มีเกมฟรีใหม่เพิ่มมาครับ**"
+    
+    status_embed.description = status_msg
+    status_embed.set_footer(text="LockOnFree • ระบบกำลังเฝ้าดูเกมใหม่ให้คุณ")
+    
+    await channel.send(embed=status_embed)
+    # -------------------------------------------------------
+
 intents = discord.Intents.default()
 bot = commands.Bot(command_prefix="!", intents=intents)
 
@@ -113,8 +130,4 @@ async def on_ready():
 if __name__ == "__main__":
     if TOKEN and CHANNEL_ID:
         bot.run(TOKEN)
-
-
-
-
 
