@@ -1,11 +1,13 @@
+import discord
+from discord.ext import commands
 import requests
 import os
-from bs4 import BeautifulSoup
 
-WEBHOOK_URL = os.getenv('DISCORD_WEBHOOK')
+# ใช้ TOKEN แทน WEBHOOK_URL แล้วนะ
+TOKEN = os.getenv('DISCORD_BOT_TOKEN')
+CHANNEL_ID = int(os.getenv('DISCORD_CHANNEL_ID')) # ต้องระบุ ID ห้องที่จะให้บอทไปพิมพ์
 DB_FILE = 'sent_games.txt'
 
-# --- ฟังก์ชันจัดการประวัติ (ของเดิม) ---
 def get_sent_games():
     if not os.path.exists(DB_FILE):
         with open(DB_FILE, 'w') as f: pass
@@ -17,66 +19,43 @@ def save_sent_game(game_id):
     with open(DB_FILE, 'a') as f:
         f.write(f"{game_id}\n")
 
-# --- ฟังก์ชันดึงข้อมูล Steam (ที่ทำหายไปเมื่อกี้ เอากลับมาแล้วครับ) ---
-def get_steam_data(url):
-    data = {"genres": None, "image": None}
-    if "steampowered.com" not in url: return data
-    try:
-        headers = {'User-Agent': 'Mozilla/5.0', 'Cookie': 'birthtime=283993201; steamCountry=TH'}
-        res = requests.get(url, headers=headers, timeout=5)
-        if res.status_code == 200:
-            soup = BeautifulSoup(res.text, 'html.parser')
-            tags = [tag.get_text().strip() for tag in soup.find_all('a', {'class': 'app_tag'})[:5]]
-            if tags: data["genres"] = ", ".join(tags)
-            img_tag = soup.find('img', {'class': 'game_header_image_full'})
-            if img_tag: data["image"] = img_tag['src']
-    except: pass
-    return data
+# --- สร้างปุ่มแบบ Link Button ---
+class ClaimView(discord.ui.View):
+    def __init__(self, url):
+        super().__init__()
+        # เพิ่มปุ่มสีแดง (Danger) ที่เป็นลิงก์
+        self.add_item(discord.ui.Button(label='🔥 CLAIM GAME NOW', url=url, style=discord.ButtonStyle.link))
 
-# --- ฟังก์ชันส่ง Discord (เพิ่มลิงก์ Claim ให้กดง่าย) ---
-def send_to_discord(game):
-    steam_data = get_steam_data(game['open_giveaway_url'])
-    genre_display = steam_data["genres"] if steam_data["genres"] else f"อื่นๆ ({game['type']})"
-    img_url = steam_data["image"] if steam_data["image"] else game.get('image', game.get('thumbnail', ''))
-
-    payload = {
-        "content": f"🎁 **Claim Game Here:** {game['open_giveaway_url']}", # ลิงก์ที่กดแล้วเด้งทันที
-        "embeds": [{
-            "title": f"🎮 {game['title']}",
-            "url": game['open_giveaway_url'], # กดที่ชื่อเกมก็เด้ง
-            "color": 1752220,
-            "image": {"url": img_url}, 
-            "fields": [
-                {"name": "📂 แนวเกม", "value": f"`{genre_display}`", "inline": False},
-                {"name": "💻 แพลตฟอร์ม", "value": f"**{game['platforms']}**", "inline": True},
-                {"name": "💰 มูลค่า", "value": f"~~{game['worth']}~~ **FREE**", "inline": True},
-                {"name": "🚀 วิธีรับเกม", "value": f"**[คลิกเพื่อรับเกมทันที]({game['open_giveaway_url']})**", "inline": False}
-            ],
-            "footer": {"text": "LockOnFree • GamerPower API"}
-        }]
-    }
-    requests.post(WEBHOOK_URL, json=payload)
-    print(f"✅ ส่งแล้ว: {game['title']}")
-
-# --- ฟังก์ชันหลัก (ของเดิม) ---
-def check_and_run():
-    print("🤖 บอทกำลังตรวจสอบเกมใหม่...")
+async def check_games(bot):
+    channel = bot.get_channel(CHANNEL_ID)
     sent_ids = get_sent_games()
     api_url = "https://www.gamerpower.com/api/giveaways"
-    try:
-        res = requests.get(api_url)
-        if res.status_code == 200:
-            games = res.json()
-            for game in reversed(games[:5]):
-                game_id = str(game['id'])
-                if game_id not in sent_ids:
-                    send_to_discord(game)
-                    save_sent_game(game_id)
-                else:
-                    print(f"⏭️ ข้าม: {game['title']}")
-    except Exception as e:
-        print(f"❌ เกิดข้อผิดพลาด: {e}")
+    
+    res = requests.get(api_url)
+    if res.status_code == 200:
+        games = res.json()
+        for game in reversed(games[:5]):
+            game_id = str(game['id'])
+            if game_id not in sent_ids:
+                embed = discord.Embed(title=f"🎮 {game['title']}", url=game['open_giveaway_url'], color=0xff0000)
+                embed.set_image(url=game['image'])
+                embed.description = f"📝 {game['description'][:160]}..."
+                embed.add_field(name="💻 Platform", value=game['platforms'])
+                
+                # ส่งพร้อมปุ่ม
+                await channel.send(embed=embed, view=ClaimView(game['open_giveaway_url']))
+                save_sent_game(game_id)
+    
+    await bot.close() # รันเสร็จแล้วปิดตัวเองเพื่อให้ GitHub Actions จบงาน
+
+# --- ส่วนรันบอท ---
+intents = discord.Intents.default()
+bot = commands.Bot(command_prefix="!", intents=intents)
+
+@bot.event
+async def on_ready():
+    print(f'🤖 Logged in as {bot.user}')
+    await check_games(bot)
 
 if __name__ == "__main__":
-    if WEBHOOK_URL:
-        check_and_run()
+    bot.run(TOKEN)
