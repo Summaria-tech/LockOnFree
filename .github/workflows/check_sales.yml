@@ -34,8 +34,15 @@ jobs:
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          
+          # 1. บันทึก (Stage) ไฟล์ที่เปลี่ยนไปก่อน
           git add sale_history.json
-          # ดึงข้อมูลล่าสุดลงมาก่อน เพื่อป้องกันการ push ไม่ติด
+          
+          # 2. ทำการ Stash หรือ Commit ไว้ชั่วคราวเพื่อให้ Pull ได้
+          git commit -m "Temp commit for rebase" || echo "No changes to commit"
+          
+          # 3. ดึงข้อมูลล่าสุดมาจาก Server และวางไฟล์เราต่อท้าย (Rebase)
           git pull --rebase origin main
-          git commit -m "Update sale history [skip ci]" || echo "No changes"
+          
+          # 4. ส่งข้อมูลขึ้นไป
           git push origin main
