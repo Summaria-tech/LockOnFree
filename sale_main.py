@@ -11,7 +11,6 @@ CHANNEL_ID = int(os.getenv('DISCORD_SALE_CHANNEL_ID'))
 RAWG_API_KEY = os.getenv('RAWG_API_KEY')
 HISTORY_FILE = "sale_history.json"
 
-# รายชื่อร้านค้าตาม StoreID ของ CheapShark
 STORES = {
     "1": "Steam", "2": "GamersGate", "3": "GreenManGaming", "7": "GOG",
     "11": "Humble Store", "25": "Epic Games Store", "31": "Blizzard Shop"
@@ -71,17 +70,81 @@ client = discord.Client(intents=discord.Intents.default())
 
 @client.event
 async def on_ready():
-    # นับจำนวนดีลที่ข้ามไปเพราะราคาเท่าเดิม
-    skipped_count = len(deals) - sent_count - (len([d for d in deals if float(d['salePrice']) == 0]))
+    channel = client.get_channel(CHANNEL_ID)
+    if not channel:
+        await client.close()
+        return
 
-    status_embed = discord.Embed(title="🤖 Bot Status: Online", color=0x2ecc71)
-    msg = f"🔍 **ตรวจสอบรอบที่:** {time_str}\n📅 **วันที่:** {date_str}\n\n"
+    history = load_history()
+    deals = get_sales()
+    new_history = history.copy()
     
+    now_th = datetime.utcnow() + timedelta(hours=7)
+    time_str = now_th.strftime("%H:%M")
+    date_str = now_th.strftime("%d/%m/%Y")
+    
+    categorized_games = {"🔥 ดีลลดหนัก (80% ขึ้นไป)": [], "📉 ดีลใหม่น่าสนใจ": []}
+    sent_count = 0
+    free_games_skipped = 0
+
+    for deal in deals:
+        game_id = deal['gameID']
+        current_price = float(deal['salePrice'])
+        
+        # กรองเกมฟรี
+        if current_price == 0:
+            free_games_skipped += 1
+            continue 
+
+        old_price = float(history.get(game_id, 999.99))
+
+        # ส่งเฉพาะเกมใหม่หรือเกมที่ลดราคาลงกว่าเดิม
+        if game_id not in history or current_price < old_price:
+            deal['genre'] = get_detailed_genres(deal['title'])
+            deal['platform'] = STORES.get(deal['storeID'], "PC Store")
+            
+            if float(deal['savings']) >= 80:
+                categorized_games["🔥 ดีลลดหนัก (80% ขึ้นไป)"].append(deal)
+            else:
+                categorized_games["📉 ดีลใหม่น่าสนใจ"].append(deal)
+            
+            new_history[game_id] = current_price
+            sent_count += 1
+
+    # ส่งดีลใหม่ (ถ้ามี)
+    for category, games in categorized_games.items():
+        for game in games:
+            desc_content = f"**สถานะ:** {category}\n**แพลตฟอร์ม:** {game['platform']}\n**แนวเกม:** {game['genre']}"
+            embed = discord.Embed(
+                title=game['title'],
+                description=desc_content,
+                color=0xFF4500 if "ลดหนัก" in category else 0x3498db,
+                url=f"https://www.cheapshark.com/redirect?dealID={game['dealID']}"
+            )
+            embed.add_field(name="💰 ราคาลดเหลือ", value=f"**${game['salePrice']}**", inline=True)
+            embed.add_field(name="💵 ราคาปกติ", value=f"~~${game['normalPrice']}~~", inline=True)
+            embed.add_field(name="📉 ส่วนลด", value=f"**{float(game['savings']):.0f}%**", inline=True)
+            embed.set_image(url=game['thumb'])
+            embed.set_footer(text=f"ตรวจพบเมื่อ: {time_str} | ข้อมูลจาก CheapShark")
+            await channel.send(embed=embed)
+
+    # --- ส่วนรายงาน Status (แก้ให้รันได้จริง) ---
+    skipped_count = len(deals) - sent_count - free_games_skipped
+    status_embed = discord.Embed(title="🤖 Bot Status: Online", color=0x2ecc71)
+    
+    msg = f"🔍 **ตรวจสอบรอบที่:** {time_str}\n📅 **วันที่:** {date_str}\n\n"
     if sent_count > 0:
         msg += f"✅ **พบดีลลดราคาใหม่ {sent_count} รายการ!**\n"
+    else:
+        msg += "✅ **ตรวจสอบแล้ว: ยังไม่มีดีลที่ถูกลงกว่าเดิม**\n"
     
     msg += f"🏠 **เฝ้าดูอยู่:** {skipped_count} เกม (ราคายังไม่ลดเพิ่ม)"
     
     status_embed.description = msg
     status_embed.set_footer(text="ระบบเฝ้าดูดีลลดราคาให้คุณตลอด 24 ชม.")
     await channel.send(embed=status_embed)
+
+    save_history(new_history)
+    await client.close()
+
+client.run(TOKEN)
