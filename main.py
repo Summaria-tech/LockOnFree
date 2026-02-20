@@ -33,20 +33,43 @@ def get_genres_from_rawg(game_name):
     return []
 
 def get_detailed_genres(game):
-    """รวม 'ประเภทการแจก' และ 'แนวเกมจาก RAWG' เข้าด้วยกัน"""
     title = game.get('title', '')
+    desc = game.get('description', '').lower()
+    full_text = (title + " " + desc).lower()
     
-    # 1. แยกประเภท (Full Game / DLC / Early Access)
-    g_type = game.get('type', 'Game')
-    if g_type == "Game": g_type = "Full Game"
+    # 1. จำแนกประเภทพื้นฐาน
+    g_type = "Full Game" if game.get('type') == "Game" else game.get('type', 'Full Game')
     
-    # 2. ดึงแนวเกมจากฐานข้อมูลโลก (RAWG)
-    rawg_genres = get_genres_from_rawg(title)
+    # 2. พยายามดึงจาก RAWG (ถ้า Config ถูกต้อง)
+    found_genres = get_genres_from_rawg(title)
     
-    # 3. ถ้าหาแนวเจอ ให้เอามาต่อท้ายประเภทเกม
-    if rawg_genres:
-        # ผลลัพธ์จะเป็น: Full Game | Action | Adventure
-        return f"{g_type} | {' | '.join(rawg_genres[:3])}"
+    # 3. ระบบจำแนกตาม Keyword (อ้างอิงตาม Genres ที่คุณกำหนด)
+    # ถ้า RAWG ไม่เจอ เราจะใช้ระบบนี้ดึงออกมาให้ครบ
+    if not found_genres:
+        # ลิสต์คำจำแนกตามที่คุณต้องการ
+        category_map = {
+            "Action": ["action", "fighting", "hack and slash", "beat em up"],
+            "Adventure": ["adventure", "exploration", "puzzle"],
+            "RPG": ["rpg", "role-playing", "arpg", "jrpg", "level up"],
+            "Strategy": ["strategy", "tactic", "rts", "turn-based", "moba"],
+            "Simulation": ["simulation", "simulator", "management", "building"],
+            "Shooting": ["shooting", "fps", "tps", "shooter"],
+            "Horror": ["horror", "scary", "survival horror"],
+            "Online": ["mmorpg", "mmo", "multiplayer online"],
+            "Racing": ["racing", "driving", "car"],
+            "Sandbox": ["sandbox", "open world"],
+            "Platformer": ["platformer", "2d retro", "jump", "pixel", "side-scroller"]
+        }
+        
+        for genre, keys in category_map.items():
+            if any(key in full_text for key in keys):
+                found_genres.append(genre)
+
+    # 4. รวมผลลัพธ์ (Full Game | แนว1 | แนว2)
+    if found_genres:
+        unique_genres = list(dict.fromkeys(found_genres))
+        # ทำให้มั่นใจว่า "Full Game" หรือ "DLC" อยู่หน้าสุดเสมอ
+        return f"{g_type} | {' | '.join(unique_genres[:3])}"
     
     return g_type
 
@@ -97,3 +120,4 @@ async def on_ready():
 if __name__ == "__main__":
     if TOKEN and CHANNEL_ID:
         bot.run(TOKEN)
+
