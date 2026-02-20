@@ -126,4 +126,18 @@ async def on_ready():
             embed.add_field(name="💰 ราคาลดเหลือ", value=f"**${game['salePrice']}**", inline=True)
             embed.add_field(name="💵 ราคาปกติ", value=f"~~${game['normalPrice']}~~", inline=True)
             embed.add_field(name="📉 ส่วนลด", value=f"**{float(game['savings']):.0f}%**", inline=True)
-            embed.set_image
+            embed.set_image(url=game['thumb'])
+            embed.set_footer(text=f"ตรวจพบดีลเมื่อ: {time_str} | ข้อมูลโดย CheapShark")
+            await channel.send(embed=embed)
+
+    status_header = "✅ **Sale Bot Status: Online**"
+    if sent_count > 0:
+        status_body = f"ตรวจสอบรอบที่: **{time_str}** วันที่: **{date_str}** พบดีลใหม่ทั้งหมด **{sent_count}** รายการครับ!"
+    else:
+        status_body = f"ตรวจสอบรอบที่: **{time_str}** วันที่: **{date_str}** ไม่มีดีลลดราคาใหม่เพิ่มมาในรอบนี้ครับ"
+    
+    await channel.send(f"{status_header}\n{status_body}\nระบบยังคงเฝ้าดูดีลลดราคาให้คุณอยู่ตลอด 24 ชม.")
+    save_history(new_history)
+    await client.close()
+
+client.run(TOKEN)
