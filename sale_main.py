@@ -84,7 +84,7 @@ async def on_ready():
     for deal in deals:
         game_id = deal['gameID']
         current_price = float(deal['salePrice'])
-        if current_price == 0: continue # กรองเกมฟรีออก
+        if current_price == 0: continue
         old_price = float(history.get(game_id, 999.99))
 
         if game_id not in history or current_price < old_price:
@@ -96,7 +96,6 @@ async def on_ready():
             new_history[game_id] = current_price
             sent_count += 1
 
-    # ส่ง Embed เกมลดราคา
     for category, games in categorized_games.items():
         for game in games:
             embed = discord.Embed(
@@ -109,20 +108,23 @@ async def on_ready():
             embed.add_field(name="💵 ราคาปกติ", value=f"~~${game['normalPrice']}~~", inline=True)
             embed.add_field(name="📉 ส่วนลด", value=f"**{float(game['savings']):.0f}%**", inline=True)
             embed.set_image(url=game['thumb'])
-            embed.set_footer(text=f"ตรวจพบดีลเมื่อ: {time_str} | ข้อมูลโดย CheapShark")
+            embed.set_footer(text=f"ตรวจพบเมื่อ: {time_str} | ข้อมูลจาก CheapShark")
             await channel.send(embed=embed)
 
-    # --- ส่วนกล่องรายงาน Status แบบ Embed ---
-    status_embed = discord.Embed(
-        title="🤖 Bot Status: Online",
-        color=0x2ecc71 # สีเขียว
-    )
+    # --- แก้ไขส่วนนี้ให้รันผ่าน 100% ---
+    status_embed = discord.Embed(title="🤖 Bot Status: Online", color=0x2ecc71)
     
-    status_text = f"🔍 **ตรวจสอบรอบที่:** {time_str}\n📅 **วันที่:** {date_str}\n\n"
+    msg = f"🔍 **ตรวจสอบรอบที่:** {time_str}\n📅 **วันที่:** {date_str}\n\n"
     if sent_count > 0:
-        status_text += f"✅ **พบดีลลดราคาใหม่ทั้งหมด {sent_count} รายการครับ!**"
+        msg += f"✅ **พบดีลลดราคาใหม่ {sent_count} รายการ!**"
     else:
-        status_text += "✅ **ไม่มีดีลลดราคาใหม่เพิ่มมาในรอบนี้ครับ**"
+        msg += "✅ **ไม่มีดีลลดราคาใหม่ในรอบนี้ครับ**"
     
-    status_embed.description = status_text
-    status_embed.set_footer(text="ระบบยังคงเฝ้าดูดีลลดราคาให้คุณอยู่
+    status_embed.description = msg
+    status_embed.set_footer(text="ระบบเฝ้าดูดีลลดราคาให้คุณตลอด 24 ชม.")
+    
+    await channel.send(embed=status_embed)
+    save_history(new_history)
+    await client.close()
+
+client.run(TOKEN)
