@@ -11,11 +11,11 @@ RAWG_KEY = os.getenv('RAWG_API_KEY')
 DB_FILE = 'sent_games.txt'
 
 def get_sent_games():
-    if not os.path.exists(DB_FILE):
-        with open(DB_FILE, 'w') as f: pass
-        return []
-    with open(DB_FILE, 'r') as f:
-        return f.read().splitlines()
+    # ให้บอทพยายามอ่านไฟล์ที่มีอยู่จริง ถ้าไม่มีค่อยสร้างใหม่
+    if os.path.exists(DB_FILE):
+        with open(DB_FILE, 'r') as f:
+            return f.read().splitlines()
+    return []
 
 def save_sent_game(game_id):
     with open(DB_FILE, 'a') as f:
@@ -135,5 +135,6 @@ async def on_ready():
 if __name__ == "__main__":
     if TOKEN and CHANNEL_ID:
         bot.run(TOKEN)
+
 
 
