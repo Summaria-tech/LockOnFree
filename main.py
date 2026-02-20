@@ -28,14 +28,42 @@ def get_genre_thai(description, game_type):
 
 def send_to_discord(game):
     genre_thai = get_genre_thai(game['description'], game['type'])
-    
     payload = {
         "embeds": [{
-            "title": f"{game['title']}", # ชื่อเกมเด่นๆ
+            "title": f"🎮 {game['title']}",
             "url": game['open_giveaway_url'],
             "color": 3066993,
-            # ย้ายรูปจาก 'image' มาเป็น 'thumbnail' เพื่อให้อยู่ด้านหน้า/ข้าง
             "thumbnail": {"url": game['thumbnail']}, 
             "description": (
                 f"**📂 แนวเกม:** `{genre_thai}`\n"
                 f"**💻 แพลตฟอร์ม:** {game['platforms']}\n"
+                f"**💰 มูลค่า:** {game['worth']}\n\n"
+                f"📝 {game['description'][:160]}...\n\n"
+                f"🔗 [**คลิกเพื่อไปหน้ากดรับเกม**]({game['open_giveaway_url']})"
+            ),
+            "footer": {"text": "GamerPower Updates • ระบบแยกหมวดหมู่อัตโนมัติ"}
+        }]
+    }
+    requests.post(WEBHOOK_URL, json=payload)
+
+def check_and_run():
+    sent_ids = get_sent_games()
+    api_url = "https://www.gamerpower.com/api/giveaways"
+    try:
+        res = requests.get(api_url)
+        if res.status_code == 200:
+            games = res.json()
+            for game in reversed(games[:10]):
+                game_id = str(game['id'])
+                if game_id not in sent_ids:
+                    send_to_discord(game)
+                    save_sent_game(game_id)
+                    print(f"✅ Sent: {game['title']}")
+    except Exception as e:
+        print(f"❌ Error: {e}")
+
+if __name__ == "__main__":
+    if WEBHOOK_URL:
+        check_and_run()
+    else:
+        print("❌ Error: DISCORD_WEBHOOK not found")
