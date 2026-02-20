@@ -85,7 +85,7 @@ async def check_and_send(bot):
                 embed = discord.Embed(
                     title=f"🎮 {game['title']}",
                     description=f"✅ **Genres:** `{genre_list}`\n\n{game['description'][:180]}...",
-                    color=0xff4747,
+                    color=5814783,
                     url=game['open_giveaway_url']
                 )
                 embed.set_image(url=game.get('image') or game.get('thumbnail'))
@@ -126,5 +126,6 @@ async def on_ready():
 if __name__ == "__main__":
     if TOKEN and CHANNEL_ID:
         bot.run(TOKEN)
+
 
 
