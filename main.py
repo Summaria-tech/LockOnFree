@@ -82,6 +82,7 @@ class ClaimView(discord.ui.View):
         super().__init__(timeout=None)
         self.add_item(discord.ui.Button(label='CLAIM GAME NOW', url=url, style=discord.ButtonStyle.link, emoji='🎁'))
 
+# แก้ไขในฟังก์ชัน check_and_send
 async def check_and_send(bot):
     channel = bot.get_channel(CHANNEL_ID)
     if not channel: return
@@ -91,10 +92,21 @@ async def check_and_send(bot):
     
     if res.status_code == 200:
         games = res.json()
-        for game in reversed(games[:100]):
+        # เช็ค 50 เกมล่าสุด
+        for game in reversed(games[:50]):
             game_id = str(game['id'])
+            
             if game_id not in sent_ids:
+                # --- ส่วนที่เพิ่มเข้ามาเพื่อกันบอทส่งซ้ำตอนเริ่มใหม่ ---
+                # ถ้าไฟล์ประวัติมีน้อย (เช่น < 5) ให้ถือว่าเป็นการเซ็ตอัพครั้งแรก 
+                # ให้บันทึก ID ไปเลยโดยไม่ต้องส่ง Discord
+                if len(sent_ids) < 10: 
+                    save_sent_game(game_id)
+                    continue
+                # ----------------------------------------------
+
                 genre_list = get_detailed_genres(game)
+                # ... โค้ดส่ง Embed ตามปกติ ...
                 
                 embed = discord.Embed(
                     title=f"🎮 {game['title']}",
@@ -123,4 +135,5 @@ async def on_ready():
 if __name__ == "__main__":
     if TOKEN and CHANNEL_ID:
         bot.run(TOKEN)
+
 
