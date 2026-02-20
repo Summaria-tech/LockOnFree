@@ -1,5 +1,39 @@
-- name: Run Sale Bot
+name: Check Game Sales
+
+on:
+  schedule:
+    - cron: '15 * * * *'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          token: ${{ secrets.MY_GITHUB_TOKEN }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - name: Install dependencies
+        run: pip install discord.py requests
+
+      - name: Run Sale Bot
         env:
           DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
-          DISCORD_SALE_CHANNEL_ID: ${{ secrets.DISCORD_SALE_CHANNEL_ID }} # ต้องชื่อเดียวกับใน GitHub
+          DISCORD_SALE_CHANNEL_ID: ${{ secrets.DISCORD_SALE_CHANNEL_ID }}
         run: python sale_main.py
+
+      - name: Save History
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add sale_history.json
+          git commit -m "Update sale history [skip ci]" || echo "No changes"
+          git push origin main
