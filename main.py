@@ -3,6 +3,7 @@ from discord.ext import commands
 import requests
 import os
 import re
+from datetime import datetime, timedelta  # <--- เช็คด่วน! บรรทัดนี้ต้องมีและห้ามมีช่องว่างข้างหน้า
 
 # --- ดึงค่าจาก GitHub Secrets ---
 TOKEN = os.getenv('DISCORD_BOT_TOKEN')
@@ -126,6 +127,7 @@ async def on_ready():
 if __name__ == "__main__":
     if TOKEN and CHANNEL_ID:
         bot.run(TOKEN)
+
 
 
 
