@@ -13,35 +13,35 @@ def save_sent_game(game_id):
 
 def get_genre_thai(description, game_type):
     desc = description.lower()
-    if "rpg" in desc or "role-playing" in desc: return "สวมบทบาท (RPG)"
-    if "action" in desc or "hack and slash" in desc or "fighting" in desc: return "แอคชั่น (Action)"
-    if "adventure" in desc or "puzzle" in desc: return "ผจญภัย (Adventure)"
-    if "strategy" in desc or "rts" in desc or "tactic" in desc or "moba" in desc: return "วางแผน (Strategy)"
-    if "simulation" in desc or "simulator" in desc or "management" in desc: return "จำลองสถานการณ์ (Simulation)"
-    if "shooter" in desc or "fps" in desc or "tps" in desc: return "ยิง (Shooting)"
-    if "mmorpg" in desc or "mmo" in desc: return "เกมออนไลน์ (MMORPG)"
-    if "horror" in desc: return "สยองขวัญ (Horror)"
-    if "racing" in desc: return "แข่งรถ (Racing)"
-    if "sandbox" in desc or "open world" in desc: return "Sandbox (อิสระ)"
-    if "casual" in desc: return "Casual (เล่นชิลล์ๆ)"
+    if "rpg" in desc: return "สวมบทบาท (RPG)"
+    if "action" in desc: return "แอคชั่น (Action)"
+    if "adventure" in desc: return "ผจญภัย (Adventure)"
+    if "strategy" in desc: return "วางแผน (Strategy)"
+    if "shooter" in desc or "fps" in desc: return "ยิง (Shooting)"
     return f"อื่นๆ ({game_type})"
 
 def send_to_discord(game):
     genre_thai = get_genre_thai(game['description'], game['type'])
+    img = game.get('thumbnail', '')
+    
     payload = {
         "embeds": [{
+            "author": {
+                "name": "Game Free Notification",
+                "icon_url": img # รูปจิ๋วหน้าชื่อ
+            },
             "title": f"🎮 {game['title']}",
             "url": game['open_giveaway_url'],
             "color": 3066993,
-            "thumbnail": {"url": game['thumbnail']}, 
+            "thumbnail": {"url": img}, # รูปเล็กด้านข้าง
             "description": (
                 f"**📂 แนวเกม:** `{genre_thai}`\n"
                 f"**💻 แพลตฟอร์ม:** {game['platforms']}\n"
                 f"**💰 มูลค่า:** {game['worth']}\n\n"
-                f"📝 {game['description'][:160]}...\n\n"
+                f"📝 {game['description'][:150]}...\n\n"
                 f"🔗 [**คลิกเพื่อไปหน้ากดรับเกม**]({game['open_giveaway_url']})"
             ),
-            "footer": {"text": "GamerPower Updates • ระบบแยกหมวดหมู่อัตโนมัติ"}
+            "footer": {"text": "GamerPower Updates"}
         }]
     }
     requests.post(WEBHOOK_URL, json=payload)
@@ -54,16 +54,11 @@ def check_and_run():
         if res.status_code == 200:
             games = res.json()
             for game in reversed(games[:10]):
-                game_id = str(game['id'])
-                if game_id not in sent_ids:
+                if str(game['id']) not in sent_ids:
                     send_to_discord(game)
-                    save_sent_game(game_id)
-                    print(f"✅ Sent: {game['title']}")
+                    save_sent_game(str(game['id']))
     except Exception as e:
-        print(f"❌ Error: {e}")
+        print(f"Error: {e}")
 
 if __name__ == "__main__":
-    if WEBHOOK_URL:
-        check_and_run()
-    else:
-        print("❌ Error: DISCORD_WEBHOOK not found")
+    if WEBHOOK_URL: check_and_run()
