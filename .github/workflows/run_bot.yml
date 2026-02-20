@@ -23,7 +23,7 @@ jobs:
         env:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
         run: |
-          pip install requests
+          pip install requests beautifulsoup4
           python main.py
 
       - name: Commit and Push changes
@@ -38,8 +38,4 @@ jobs:
           else
             echo "No changes to commit"
           fi
-       - name: Install dependencies
-         run: |
-          python -m pip install --upgrade pip
-          # ต้องใส่ทั้ง requests และ beautifulsoup4 ในบรรทัดเดียวกัน
-          pip install requests beautifulsoup4
+       
