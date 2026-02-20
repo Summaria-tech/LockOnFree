@@ -58,37 +58,4 @@ def save_history(history):
 
 client = discord.Client(intents=discord.Intents.default())
 
-@client.event
-async def on_ready():
-    channel = client.get_channel(CHANNEL_ID)
-    if not channel:
-        print("❌ Channel ID incorrect")
-        await client.close()
-        return
-
-    history = load_history()
-    new_history = history.copy()
-    
-    # ดึงดีล Steam (Store 1) คัดเฉพาะราคาไม่เกิน $15 ดึงมา 60 รายการ
-    url = "https://www.cheapshark.com/api/1.0/deals?storeID=1&upperPrice=15&pageSize=60"
-    try:
-        res = requests.get(url)
-        deals = res.json()
-    except Exception as e:
-        print(f"❌ API Error: {e}")
-        await client.close()
-        return
-
-    now_th = datetime.utcnow() + timedelta(hours=7)
-    time_str = now_th.strftime("%H:%M")
-    date_str = now_th.strftime("%d/%m/%Y")
-    sent_count = 0
-
-    for deal in deals:
-        game_id = deal['gameID']
-        current_price_usd = float(deal['salePrice'])
-        savings = float(deal['savings'])
-        price_thb = current_price_usd * 36 
-
-        # เงื่อนไข: ลด 70% ขึ้นไป หรือ ราคาต่ำกว่า 300 บาท
-        if savings >= 70 or
+@client.
