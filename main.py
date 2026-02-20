@@ -6,7 +6,11 @@ import asyncio
 
 # --- ตั้งค่าส่วนตัว (ใส่ใน GitHub Secrets) ---
 TOKEN = os.getenv('DISCORD_BOT_TOKEN')
-CHANNEL_ID = int(os.getenv('DISCORD_CHANNEL_ID')) # ID ของห้องที่ต้องการให้บอทส่ง
+channel_id_env = os.getenv('DISCORD_CHANNEL_ID')
+CHANNEL_ID = int(channel_id_env) if channel_id_env and channel_id_env.isdigit() else None
+
+if not CHANNEL_ID:
+    print("❌ ไม่พบ DISCORD_CHANNEL_ID หรือรูปแบบไม่ถูกต้อง (ต้องเป็นตัวเลขเท่านั้น)")
 DB_FILE = 'sent_games.txt'
 
 def get_sent_games():
@@ -84,3 +88,4 @@ if __name__ == "__main__":
         bot.run(TOKEN)
     else:
         print("❌ ขาด TOKEN หรือ CHANNEL_ID ในระบบ Secrets")
+
