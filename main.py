@@ -21,55 +21,57 @@ def save_sent_game(game_id):
         f.write(f"{game_id}\n")
 
 def get_genres_from_rawg(game_name):
-    """ดึงแนวเกมจากฐานข้อมูล RAWG (ครอบคลุมทุกแพลตฟอร์ม)"""
+    """ดึงแนวเกมทั้งหมดที่ RAWG มี โดยไม่จำกัดแค่ 1-2 อัน"""
     if not RAWG_KEY: return []
     try:
-        url = f"https://api.rawg.io/api/games?key={RAWG_KEY}&search={game_name}&page_size=1"
+        # ล้างชื่อเกมให้สะอาดที่สุดเพื่อให้ค้นหาแม่นยำ
+        clean_name = re.sub(r'\(.*?\)|[^\w\s]', '', game_name).strip()
+        url = f"https://api.rawg.io/api/games?key={RAWG_KEY}&search={clean_name}&page_size=1"
         res = requests.get(url, timeout=5).json()
+        
         if res.get('results'):
-            genres = [g['name'] for g in res['results'][0].get('genres', [])]
-            return genres
-    except: return []
+            # ดึง Genres ทั้งหมดที่มีในรายการแรกที่เจอ (เช่น Action, Adventure, Indie)
+            all_genres = [g['name'] for g in res['results'][0].get('genres', [])]
+            return all_genres
+    except Exception as e:
+        print(f"RAWG Error: {e}")
     return []
 
 def get_detailed_genres(game):
     title = game.get('title', '')
     desc = game.get('description', '').lower()
-    full_text = (title + " " + desc).lower()
     
-    # 1. จำแนกประเภทพื้นฐาน
+    # 1. ตรวจสอบว่าเป็น Full Game หรือ DLC (ห้ามหาย!)
     g_type = "Full Game" if game.get('type') == "Game" else game.get('type', 'Full Game')
     
-    # 2. พยายามดึงจาก RAWG (ถ้า Config ถูกต้อง)
-    found_genres = get_genres_from_rawg(title)
+    # 2. ดึงแนวจาก RAWG (เอามาให้หมด)
+    rawg_genres = get_genres_from_rawg(title)
     
-    # 3. ระบบจำแนกตาม Keyword (อ้างอิงตาม Genres ที่คุณกำหนด)
-    # ถ้า RAWG ไม่เจอ เราจะใช้ระบบนี้ดึงออกมาให้ครบ
-    if not found_genres:
-        # ลิสต์คำจำแนกตามที่คุณต้องการ
-        category_map = {
-            "Action": ["action", "fighting", "hack and slash", "beat em up"],
-            "Adventure": ["adventure", "exploration", "puzzle"],
-            "RPG": ["rpg", "role-playing", "arpg", "jrpg", "level up"],
-            "Strategy": ["strategy", "tactic", "rts", "turn-based", "moba"],
-            "Simulation": ["simulation", "simulator", "management", "building"],
-            "Shooting": ["shooting", "fps", "tps", "shooter"],
-            "Horror": ["horror", "scary", "survival horror"],
-            "Online": ["mmorpg", "mmo", "multiplayer online"],
-            "Racing": ["racing", "driving", "car"],
-            "Sandbox": ["sandbox", "open world"],
-            "Platformer": ["platformer", "2d retro", "jump", "pixel", "side-scroller"]
-        }
-        
-        for genre, keys in category_map.items():
-            if any(key in full_text for key in keys):
-                found_genres.append(genre)
+    # 3. แผนสำรอง: สแกน Keyword จากคำอธิบาย (เผื่อ RAWG ข้อมูลไม่ครบ)
+    backup_genres = []
+    keywords = {
+        "Action": ["action", "fighting", "hack"],
+        "Adventure": ["adventure", "exploration"],
+        "RPG": ["rpg", "role-playing"],
+        "Strategy": ["strategy", "tactic"],
+        "Shooting": ["shooting", "fps"],
+        "Platformer": ["platformer", "2d", "retro"],
+        "Indie": ["indie", "independent"]
+    }
+    for genre, keys in keywords.items():
+        if any(key in desc or key in title.lower() for key in keys):
+            backup_genres.append(genre)
 
-    # 4. รวมผลลัพธ์ (Full Game | แนว1 | แนว2)
-    if found_genres:
-        unique_genres = list(dict.fromkeys(found_genres))
-        # ทำให้มั่นใจว่า "Full Game" หรือ "DLC" อยู่หน้าสุดเสมอ
-        return f"{g_type} | {' | '.join(unique_genres[:3])}"
+    # 4. รวมข้อมูลทั้งหมดเข้าด้วยกัน และลบตัวซ้ำ
+    combined = rawg_genres + backup_genres
+    final_list = []
+    for item in combined:
+        if item not in final_list:
+            final_list.append(item)
+
+    # แสดงผล: Full Game | Action | Adventure | Indie (ดึงมาสูงสุด 5 แนว)
+    if final_list:
+        return f"{g_type} | {' | '.join(final_list[:5])}"
     
     return g_type
 
@@ -120,4 +122,5 @@ async def on_ready():
 if __name__ == "__main__":
     if TOKEN and CHANNEL_ID:
         bot.run(TOKEN)
+
 
