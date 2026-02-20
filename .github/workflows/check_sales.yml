@@ -35,5 +35,7 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git add sale_history.json
+          # ดึงข้อมูลล่าสุดลงมาก่อน เพื่อป้องกันการ push ไม่ติด
+          git pull --rebase origin main
           git commit -m "Update sale history [skip ci]" || echo "No changes"
           git push origin main
