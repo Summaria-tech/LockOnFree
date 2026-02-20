@@ -38,11 +38,10 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           
-          # ดึงข้อมูลล่าสุดลงมาก่อนเพื่อป้องกัน Conflict
-          git pull origin main 
+          # ดึงข้อมูลล่าสุดมาทับเครื่องจำลองก่อน เพื่อให้ไฟล์ตรงกันเป๊ะๆ
+          git fetch origin main
+          git checkout main sent_games.txt || echo "First time, file not found"
           
-          # เพิ่มเฉพาะไฟล์ sent_games.txt เท่านั้น ห้ามใส่ git add .
-          git add sent_games.txt 
-          
+          git add sent_games.txt
           git commit -m "Update history [skip ci]" || exit 0
           git push origin main
