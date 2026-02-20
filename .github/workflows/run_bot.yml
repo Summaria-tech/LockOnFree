@@ -30,12 +30,8 @@ jobs:
         run: |
           git config --global user.name "GitHub Action"
           git config --global user.email "action@github.com"
-          # ถ้าไม่มีไฟล์ไม่ต้องทำอะไรต่อ ไม่ต้องพ่น Error
-          if [ -f sent_games.txt ]; then
-            git add sent_games.txt
-            git commit -m "Update history" || exit 0
-            git push origin main --force
-          else
-            echo "No changes to commit"
-          fi
+          # บังคับเพิ่มไฟล์ แม้จะเพิ่งสร้างใหม่
+          git add sent_games.txt
+          git commit -m "Update history and fix missing file" || exit 0
+          git push origin main --force
        
