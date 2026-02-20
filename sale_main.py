@@ -2,6 +2,7 @@ import discord
 import requests
 import json
 import os
+import re
 from datetime import datetime, timedelta
 
 # ดึงข้อมูลจาก GitHub Secrets
@@ -11,11 +12,12 @@ RAWG_API_KEY = os.getenv('RAWG_API_KEY')
 HISTORY_FILE = "sale_history.json"
 
 def get_genres_from_rawg(game_name):
-    if not RAWG_KEY: return []
+    if not RAWG_API_KEY: return []
     try:
+        # ใช้ระบบ Clean Name เดิมของคุณ
         clean_name = re.sub(r'\(.*?\)|(?i)giveaway|free|download|pack', '', game_name)
         clean_name = re.sub(r'[^\w\s]', '', clean_name).strip()
-        url = f"https://api.rawg.io/api/games?key={RAWG_KEY}&search={clean_name}&page_size=1"
+        url = f"https://api.rawg.io/api/games?key={RAWG_API_KEY}&search={clean_name}&page_size=1"
         res = requests.get(url, timeout=10).json()
         if res.get('results'):
             return [g['name'] for g in res['results'][0].get('genres', [])]
@@ -23,32 +25,36 @@ def get_genres_from_rawg(game_name):
         print(f"RAWG Error: {e}")
     return []
 
-def get_detailed_genres(game):
-    title = game.get('title', '')
-    desc = game.get('description', '').lower()
-    g_type = "Full Game" if game.get('type') == "Game" else game.get('type', 'Full Game')
-    rawg_genres = get_genres_from_rawg(title)
+def get_detailed_genres(game_title):
+    # ปรับให้รับเฉพาะ title เพราะบอทลดราคาไม่มี description ยาวๆ เหมือนบอทเกมฟรี
+    rawg_genres = get_genres_from_rawg(game_title)
     backup_genres = []
+    
+    # ระบบเช็ค Keyword จากชื่อเกม (ของเดิมของคุณ)
     keywords = {
         "Action": ["action", "fighting", "hack"],
         "Adventure": ["adventure", "exploration"],
         "RPG": ["rpg", "role-playing"],
         "Strategy": ["strategy", "tactic"],
-        "Shooting": ["shooting", "fps"],
+        "Shooting": ["shooting", "fps", "shooter"],
         "Platformer": ["platformer", "2d", "retro"],
-        "Indie": ["indie", "independent"]
+        "Indie": ["indie"]
     }
+    
+    title_lower = game_title.lower()
     for genre, keys in keywords.items():
-        if any(key in desc or key in title.lower() for key in keys):
+        if any(key in title_lower for key in keys):
             backup_genres.append(genre)
+            
     combined = rawg_genres + backup_genres
     final_list = []
     for item in combined:
         if item not in final_list:
             final_list.append(item)
+            
     if final_list:
-        return f"{g_type} | {' | '.join(final_list[:5])}"
-    return g_type
+        return " | ".join(final_list[:5])
+    return "General"
 
 def load_history():
     if os.path.exists(HISTORY_FILE):
@@ -80,7 +86,6 @@ async def on_ready():
     deals = get_sales()
     new_history = history.copy()
     
-    # ตั้งค่าเวลาไทย
     now_th = datetime.utcnow() + timedelta(hours=7)
     time_str = now_th.strftime("%H:%M")
     date_str = now_th.strftime("%d/%m/%Y")
@@ -94,13 +99,14 @@ async def on_ready():
     for deal in deals:
         game_id = deal['gameID']
         current_price = float(deal['salePrice'])
-        
-        if current_price == 0: continue # กรองเกมฟรีออก
+        if current_price == 0: continue
             
         old_price = float(history.get(game_id, 999.99))
 
         if game_id not in history or current_price < old_price:
-            deal['genre'] = get_game_genre(deal['title'])
+            # ใช้ระบบเจาะลึกแนวเกมของคุณ
+            deal['genre'] = get_detailed_genres(deal['title'])
+            
             savings = float(deal['savings'])
             if savings >= 80:
                 categorized_games["🔥 ดีลลดหนัก (80% ขึ้นไป)"].append(deal)
@@ -109,7 +115,6 @@ async def on_ready():
             new_history[game_id] = current_price
             sent_count += 1
 
-    # ส่ง Embed เกมลดราคา
     for category, games in categorized_games.items():
         for game in games:
             embed = discord.Embed(
@@ -121,22 +126,4 @@ async def on_ready():
             embed.add_field(name="💰 ราคาลดเหลือ", value=f"**${game['salePrice']}**", inline=True)
             embed.add_field(name="💵 ราคาปกติ", value=f"~~${game['normalPrice']}~~", inline=True)
             embed.add_field(name="📉 ส่วนลด", value=f"**{float(game['savings']):.0f}%**", inline=True)
-            embed.set_image(url=game['thumb'])
-            embed.set_footer(text=f"ตรวจพบดีลเมื่อ: {time_str} | ข้อมูลโดย CheapShark")
-            await channel.send(embed=embed)
-
-    # --- ส่วน Status รายงานตัวที่ปรับใหม่ตามคำขอ ---
-    status_header = "✅ **Sale Bot Status: Online**"
-    if sent_count > 0:
-        status_body = f"ตรวจสอบรอบที่: **{time_str}** วันที่: **{date_str}** พบดีลใหม่ทั้งหมด **{sent_count}** รายการครับ!"
-    else:
-        status_body = f"ตรวจสอบรอบที่: **{time_str}** วันที่: **{date_str}** ไม่มีดีลลดราคาใหม่เพิ่มมาในรอบนี้ครับ"
-    
-    footer_msg = "ระบบยังคงเฝ้าดูดีลลดราคาให้คุณอยู่ตลอด 24 ชม."
-    
-    await channel.send(f"{status_header}\n{status_body}\n{footer_msg}")
-    
-    save_history(new_history)
-    await client.close()
-
-client.run(TOKEN)
+            embed.set_image
