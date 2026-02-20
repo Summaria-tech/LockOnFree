@@ -71,22 +71,17 @@ client = discord.Client(intents=discord.Intents.default())
 
 @client.event
 async def on_ready():
-    channel = client.get_channel(CHANNEL_ID)
-    if not channel:
-        await client.close()
-        return
+    # นับจำนวนดีลที่ข้ามไปเพราะราคาเท่าเดิม
+    skipped_count = len(deals) - sent_count - (len([d for d in deals if float(d['salePrice']) == 0]))
 
-    history = load_history()
-    deals = get_sales()
-    new_history = history.copy()
+    status_embed = discord.Embed(title="🤖 Bot Status: Online", color=0x2ecc71)
+    msg = f"🔍 **ตรวจสอบรอบที่:** {time_str}\n📅 **วันที่:** {date_str}\n\n"
     
-    now_th = datetime.utcnow() + timedelta(hours=7)
-    time_str = now_th.strftime("%H:%M")
-    date_str = now_th.strftime("%d/%m/%Y")
+    if sent_count > 0:
+        msg += f"✅ **พบดีลลดราคาใหม่ {sent_count} รายการ!**\n"
     
-    categorized_games = {"🔥 ดีลลดหนัก (80% ขึ้นไป)": [], "📉 ดีลใหม่น่าสนใจ": []}
-    sent_count = 0
-
-    for deal in deals:
-        game_id = deal['gameID']
-        current_
+    msg += f"🏠 **เฝ้าดูอยู่:** {skipped_count} เกม (ราคายังไม่ลดเพิ่ม)"
+    
+    status_embed.description = msg
+    status_embed.set_footer(text="ระบบเฝ้าดูดีลลดราคาให้คุณตลอด 24 ชม.")
+    await channel.send(embed=status_embed)
