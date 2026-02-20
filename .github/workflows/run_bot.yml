@@ -41,10 +41,15 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           
-          # ดึงไฟล์ล่าสุดมาป้องกัน Conflict
-          git fetch origin main
-          git checkout origin/main -- sent_games.txt || echo "First time"
-          
+          # 1. บันทึกไฟล์ที่บอทเกมฟรีเพิ่งเขียนเสร็จ
           git add sent_games.txt
-          # ถ้ามีการเปลี่ยนแปลง ให้ Commit และบังคับ Push ขึ้นไปเลย
-          git commit -m "Update history [skip ci]" && git push origin main --force || echo "Nothing to update"
+          
+          # 2. Commit ไว้ก่อน
+          git commit -m "Update free games history [skip ci]" || echo "No changes"
+          
+          # 3. ดึงข้อมูลล่าสุดจาก Server (รวมถึงประวัติจากบอทลดราคาด้วย)
+          # ใช้ rebase เพื่อเอาประวัติใหม่มาต่อท้าย ไม่ให้ทับกัน
+          git pull --rebase origin main
+          
+          # 4. Push ขึ้นไปตามปกติ (ห้ามใช้ --force)
+          git push origin main
