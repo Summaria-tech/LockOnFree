@@ -92,7 +92,19 @@ async def on_ready():
     categorized_games = {"🔥 ดีลลดหนัก (80% ขึ้นไป)": [], "📉 ดีลใหม่น่าสนใจ": []}
     sent_count = 0
     free_games_skipped = 0
+    # เพิ่ม page_size=50 หรือ 100 เพื่อให้ได้ข้อมูลเยอะขึ้น
+url = "https://www.cheapshark.com/api/1.0/deals?storeID=1&upperPrice=10&pageSize=50"
+res = requests.get(url)
+deals = res.json()
 
+for deal in deals:
+    savings = float(deal['savings'])
+    price_usd = float(deal['salePrice'])
+    price_thb = price_usd * 35 # แปลงเป็นบาท
+    
+    # เงื่อนไขคุณ: ลด 70% ขึ้นไป OR ราคาต่ำกว่า 300 บาท
+    if savings >= 70 or price_thb < 300:
+        # สั่งส่งข้อความ...
     for deal in deals:
         game_id = deal['gameID']
         current_price_usd = float(deal['salePrice'])
