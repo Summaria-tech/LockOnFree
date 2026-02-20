@@ -22,23 +22,22 @@ def save_sent_game(game_id):
         f.write(f"{game_id}\n")
 
 def get_steam_data(url):
-    """ขูดข้อมูลแนวเกมจาก Steam"""
+    """ขูดข้อมูล Tags หลายแนวจาก Steam ให้ครอบคลุม Action, RPG, etc."""
     if "steampowered.com" not in url: return None
     try:
         headers = {'User-Agent': 'Mozilla/5.0', 'Cookie': 'birthtime=283993201; steamCountry=TH'}
         res = requests.get(url, headers=headers, timeout=5)
         if res.status_code == 200:
             soup = BeautifulSoup(res.text, 'html.parser')
-            tags = [tag.get_text().strip() for tag in soup.find_all('a', {'class': 'app_tag'})[:3]]
-            return ", ".join(tags) if tags else None
+            # ดึงมา 5 แนว เพื่อให้ได้ Action | Adventure | RPG ตามลำดับความสำคัญ
+            tags = [tag.get_text().strip() for tag in soup.find_all('a', {'class': 'app_tag'})[:5]]
+            return " | ".join(tags) if tags else None
     except: return None
 
-# --- ส่วนของปุ่มกด ---
+# --- สร้างปุ่มกด Link Button (ปุ่มจริงแยกนอกกล่อง) ---
 class ClaimView(discord.ui.View):
     def __init__(self, url):
         super().__init__(timeout=None)
-        # สร้างปุ่ม Link Button แต่ตกแต่งให้ดูเด่น
-        # หมายเหตุ: ปุ่ม Link ใน Discord จะบังคับสีเทา/หม่นโดยอัตโนมัติ แต่เราเน้นที่ความสวยของ Embed
         self.add_item(discord.ui.Button(
             label='CLAIM GAME NOW', 
             url=url, 
@@ -59,14 +58,14 @@ async def check_and_send(bot):
         for game in reversed(games[:5]):
             game_id = str(game['id'])
             if game_id not in sent_ids:
-                # เตรียมข้อมูลแนวเกม
-                genre = get_steam_data(game['open_giveaway_url']) or game.get('type', 'Game')
+                # ดึงแนวเกมหลายแนว
+                genre_list = get_steam_data(game['open_giveaway_url']) or game.get('type', 'Game')
 
-                # สร้าง Embed ตามรูปแบบที่ต้องการ
+                # สร้าง Embed แบบสีแดง
                 embed = discord.Embed(
                     title=f"🎮 {game['title']}",
-                    description=f"✅ **Genre:** `{genre}`\n\n{game['description'][:180]}...",
-                    color=0xff4747, # สีแดง
+                    description=f"✅ **Genres:** `{genre_list}`\n\n{game['description'][:180]}...",
+                    color=0xff4747, 
                     url=game['open_giveaway_url']
                 )
                 embed.set_image(url=game['image'] or game['thumbnail'])
@@ -74,9 +73,10 @@ async def check_and_send(bot):
                 embed.add_field(name="💰 Worth", value=f"~~{game['worth']}~~ **FREE**", inline=True)
                 embed.set_footer(text="LockOnFree • Click the button below to claim")
 
+                # ส่งพร้อมปุ่มจริง
                 await channel.send(embed=embed, view=ClaimView(game['open_giveaway_url']))
                 save_sent_game(game_id)
-                print(f"✅ Sent: {game['title']}")
+                print(f"✅ ส่งแล้ว: {game['title']}")
 
 # --- รันบอท ---
 intents = discord.Intents.default()
