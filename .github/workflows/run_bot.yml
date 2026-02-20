@@ -41,10 +41,10 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           
-          # ดึงไฟล์ล่าสุดมาเช็คก่อน
+          # ดึงไฟล์ล่าสุดมาป้องกัน Conflict
           git fetch origin main
-          git checkout origin/main -- sent_games.txt || echo "First time, no file."
+          git checkout origin/main -- sent_games.txt || echo "First time"
           
           git add sent_games.txt
-          git commit -m "Update history [skip ci]" || exit 0
-          git push origin main
+          # ถ้ามีการเปลี่ยนแปลง ให้ Commit และบังคับ Push ขึ้นไปเลย
+          git commit -m "Update history [skip ci]" && git push origin main --force || echo "Nothing to update"
