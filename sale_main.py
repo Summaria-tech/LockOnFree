@@ -53,8 +53,14 @@ def get_detailed_genres(game_title):
 def load_history():
     if os.path.exists(HISTORY_FILE):
         with open(HISTORY_FILE, "r") as f:
-            try: return json.load(f)
-            except: return {}
+            try: 
+                data = json.load(f)
+                print(f"Loaded history: {len(data)} items") # เพิ่มบรรทัดนี้เพื่อเช็ค
+                return data
+            except: 
+                print("History file is empty or corrupted")
+                return {}
+    print("History file not found, creating new one")
     return {}
 
 def save_history(history):
