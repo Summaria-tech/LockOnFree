@@ -90,19 +90,38 @@ async def check_and_send(bot):
     sent_ids = get_sent_games()
     res = requests.get("https://www.gamerpower.com/api/giveaways")
     
+    new_game_count = 0 # ตัวนับเกมใหม่
+    
     if res.status_code == 200:
         games = res.json()
-        # เช็ค 50 เกมล่าสุด
-        for game in reversed(games[:100]):
+        for game in reversed(games[:50]):
             game_id = str(game['id'])
-            
             if game_id not in sent_ids:
-                # --- ส่วนที่เพิ่มเข้ามาเพื่อกันบอทส่งซ้ำตอนเริ่มใหม่ ---
-                # ถ้าไฟล์ประวัติมีน้อย (เช่น < 5) ให้ถือว่าเป็นการเซ็ตอัพครั้งแรก 
-                # ให้บันทึก ID ไปเลยโดยไม่ต้องส่ง Discord
-                if len(sent_ids) < 50: 
-                    save_sent_game(game_id)
-                    continue
+                genre_list = get_detailed_genres(game)
+                
+                embed = discord.Embed(
+                    title=f"🎮 {game['title']}",
+                    description=f"✅ **Genres:** `{genre_list}`\n\n{game['description'][:180]}...",
+                    color=0xff4747,
+                    url=game['open_giveaway_url']
+                )
+                # ... ส่วนเสริม Embed อื่นๆ เหมือนเดิม ...
+                
+                await channel.send(embed=embed, view=ClaimView(game['open_giveaway_url']))
+                save_sent_game(game_id)
+                new_game_count += 1
+                print(f"✅ Sent: {game['title']}")
+
+    # --- ส่วนที่เพิ่มใหม่: รายงานสถานะบอท ---
+    if new_game_count == 0:
+        # ถ้าไม่มีเกมใหม่ ให้ส่งข้อความบอกว่าบอทยังทำงานอยู่
+        status_embed = discord.Embed(
+            title="🤖 Bot Status: Online",
+            description="🔍 ตรวจสอบแล้ว: **ไม่มีเกมฟรีใหม่เพิ่มมาในรอบชั่วโมงนี้ครับ**",
+            color=0x2f3136 # สีเทาเรียบๆ
+        )
+        status_embed.set_footer(text="ระบบยังคงเฝ้าดูเกมใหม่ให้คุณอยู่ตลอด 24 ชม.")
+        await channel.send(embed=status_embed, delete_after=3600) # ตั้งให้ลบตัวเองใน 1 ชม. เพื่อไม่ให้รก
                 # ----------------------------------------------
 
                 genre_list = get_detailed_genres(game)
@@ -135,6 +154,7 @@ async def on_ready():
 if __name__ == "__main__":
     if TOKEN and CHANNEL_ID:
         bot.run(TOKEN)
+
 
 
 
