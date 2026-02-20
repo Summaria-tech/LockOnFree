@@ -4,9 +4,24 @@ import json
 import os
 from datetime import datetime, timedelta
 
+# ดึงข้อมูลจาก GitHub Secrets
 TOKEN = os.getenv('DISCORD_BOT_TOKEN')
 CHANNEL_ID = int(os.getenv('DISCORD_SALE_CHANNEL_ID'))
+RAWG_API_KEY = os.getenv('RAWG_API_KEY') # ใช้ Key เดียวกับบอทเกมฟรี
 HISTORY_FILE = "sale_history.json"
+
+def get_game_genre(game_name):
+    # ฟังก์ชันดึงแนวเกมจาก RAWG API
+    url = f"https://api.rawg.io/api/games?key={RAWG_API_KEY}&search={game_name}&page_size=1"
+    try:
+        response = requests.get(url)
+        data = response.json()
+        if data['results']:
+            genres = [g['name'] for g in data['results'][0].get('genres', [])]
+            return ", ".join(genres) if genres else "General"
+    except:
+        return "Unknown"
+    return "Unknown"
 
 def load_history():
     if os.path.exists(HISTORY_FILE):
@@ -45,17 +60,22 @@ async def on_ready():
         "🔥 ดีลลดหนัก (80% ขึ้นไป)": [],
         "📉 ดีลใหม่น่าสนใจ": []
     }
-    # เพิ่มเงื่อนไขใน Loop ตรวจสอบเกม
-    if current_price == 0:
-        continue  # ข้ามเกมที่ฟรีไปเลย เพราะเรามีบอทเกมฟรีแยกอยู่แล้ว
 
     for deal in deals:
         game_id = deal['gameID']
         current_price = float(deal['salePrice'])
-        savings = float(deal['savings'])
+        
+        # --- 1. ระบบกรองเกมฟรีออก ---
+        if current_price == 0:
+            continue
+            
         old_price = float(history.get(game_id, 999.99))
 
         if game_id not in history or current_price < old_price:
+            # --- 2. ดึงแนวเกมมาใส่ในข้อมูล deal ---
+            deal['genre'] = get_game_genre(deal['title'])
+            
+            savings = float(deal['savings'])
             if savings >= 80:
                 categorized_games["🔥 ดีลลดหนัก (80% ขึ้นไป)"].append(deal)
             else:
@@ -68,7 +88,7 @@ async def on_ready():
             sent_any = True
             embed = discord.Embed(
                 title=game['title'],
-                description=f"**หมวดหมู่:** {category}\nลดราคาพิเศษบน Steam/Epic",
+                description=f"**หมวดหมู่:** {category}\n**แนวเกม:** {game['genre']}", # เพิ่มแนวเกมตรงนี้
                 color=0xFF4500 if "ลดหนัก" in category else 0x3498db,
                 url=f"https://www.cheapshark.com/redirect?dealID={game['dealID']}"
             )
@@ -81,7 +101,7 @@ async def on_ready():
 
     status_msg = f"✅ **Sale Bot Status:** Online\n🔍 ตรวจสอบเรียบร้อยเมื่อเวลา **{time_str}**"
     if not sent_any:
-        status_msg += "\n🏠 ยังไม่มีดีลที่ถูกลงกว่าเดิมในรอบนี้"
+        status_msg += "\n🏠 ยังไม่มีดีลที่ถูกลงกว่าเดิมในรอบนี้ (ข้ามเกมฟรีแล้ว)"
     
     await channel.send(status_msg)
     save_history(new_history)
