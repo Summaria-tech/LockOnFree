@@ -10,9 +10,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3 # อัปเดตเป็น v3
         with:
-          persist-credentials: true # เพิ่มเพื่อให้บอทมีสิทธิ์ Push ไฟล์ประวัติ
+          token: ${{ secrets.MY_GITHUB_TOKEN }} # ใช้ Token ที่เราเพิ่งสร้าง
+          persist-credentials: true
 
       - name: Set up Python
         uses: actions/setup-python@v2
