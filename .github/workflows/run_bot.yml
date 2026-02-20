@@ -32,5 +32,5 @@ jobs:
           git config --global user.email "action@github.com"
           git add sent_games.txt
           git commit -m "Update history" || exit 0
-          git pull --rebase origin main  # ดึงข้อมูลล่าสุดมาทับก่อน
+          git pull --rebase origin main  # เพิ่มบรรทัดนี้เพื่อเคลียร์ทาง
           git push origin main
