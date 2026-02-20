@@ -2,8 +2,8 @@ name: Run Game Bot Hourly
 
 on:
   schedule:
-    - cron: '0 * * * *' # สั่งรันทุกต้นชั่วโมง
-  workflow_dispatch:      # ปุ่มกดรันเองด้วยมือ
+    - cron: '* * * * *' # สั่งรันทุก 1 นาที (สำหรับการทดสอบเท่านั้น)
+  workflow_dispatch:
 
 jobs:
   build:
