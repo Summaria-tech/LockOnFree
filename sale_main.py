@@ -95,27 +95,38 @@ async def on_ready():
 
     for deal in deals:
         game_id = deal['gameID']
-        current_price = float(deal['salePrice'])
+        current_price_usd = float(deal['salePrice'])
+        savings = float(deal['savings'])
+        store_id = deal['storeID']
         
-        # กรองเกมฟรี
-        if current_price == 0:
-            free_games_skipped += 1
-            continue 
+        # 1. กรองเอาเฉพาะ Steam (StoreID "1")
+        if store_id != "1":
+            continue
 
-        old_price = float(history.get(game_id, 999.99))
+        # 2. แปลงราคาเป็นบาทโดยประมาณ (สมมติ $1 = 35 บาท)
+        price_thb = current_price_usd * 35
 
-        # ส่งเฉพาะเกมใหม่หรือเกมที่ลดราคาลงกว่าเดิม
-        if game_id not in history or current_price < old_price:
-            deal['genre'] = get_detailed_genres(deal['title'])
-            deal['platform'] = STORES.get(deal['storeID'], "PC Store")
+        # 3. เช็คเงื่อนไข: ลด >= 70% หรือ ราคา < 300 บาท
+        if savings >= 70 or price_thb < 300:
             
-            if float(deal['savings']) >= 80:
-                categorized_games["🔥 ดีลลดหนัก (80% ขึ้นไป)"].append(deal)
-            else:
-                categorized_games["📉 ดีลใหม่น่าสนใจ"].append(deal)
-            
-            new_history[game_id] = current_price
-            sent_count += 1
+            # เช็คประวัติว่าเคยส่งหรือยัง หรือราคาถูกลงกว่าเดิมไหม
+            old_price = float(history.get(game_id, 999.99))
+            if game_id not in history or current_price_usd < old_price:
+                
+                deal['genre'] = get_detailed_genres(deal['title'])
+                deal['platform'] = "Steam 🎮"
+                
+                # จัดหมวดหมู่ตามความแรงของดีล
+                if savings >= 90:
+                    category = "🚀 ดีลลดล้างสต๊อก (90%+)"
+                elif savings >= 70:
+                    category = "🔥 ดีลลดหนัก (70%+)"
+                else:
+                    category = "💰 ดีลราคาประหยัด (< 300.-)"
+                
+                # ... (ส่วนส่ง Embed เหมือนเดิม) ...
+                new_history[game_id] = current_price_usd
+                sent_count += 1
 
     # ส่งดีลใหม่ (ถ้ามี)
     for category, games in categorized_games.items():
