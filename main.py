@@ -22,7 +22,7 @@ def save_sent_game(game_id):
     with open(DB_FILE, 'a') as f:
         f.write(f"{game_id}\n")
 
-ddef get_detailed_genres(game):
+def get_detailed_genres(game):
     """ดึงทั้งประเภทการแจก (Full Game/DLC) และแนวเกม (Action/RPG) มาแสดงคู่กัน"""
     url = game.get('open_giveaway_url', '')
     description = game.get('description', '').lower()
@@ -120,4 +120,5 @@ async def on_ready():
 if __name__ == "__main__":
     if TOKEN and CHANNEL_ID:
         bot.run(TOKEN)
+
 
