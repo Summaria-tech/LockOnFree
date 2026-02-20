@@ -11,6 +11,12 @@ CHANNEL_ID = int(os.getenv('DISCORD_SALE_CHANNEL_ID'))
 RAWG_API_KEY = os.getenv('RAWG_API_KEY')
 HISTORY_FILE = "sale_history.json"
 
+# รายชื่อร้านค้าตาม StoreID ของ CheapShark
+STORES = {
+    "1": "Steam", "2": "GamersGate", "3": "GreenManGaming", "7": "GOG",
+    "11": "Humble Store", "25": "Epic Games Store", "31": "Blizzard Shop"
+}
+
 def get_genres_from_rawg(game_name):
     if not RAWG_API_KEY: return []
     try:
@@ -83,48 +89,4 @@ async def on_ready():
 
     for deal in deals:
         game_id = deal['gameID']
-        current_price = float(deal['salePrice'])
-        if current_price == 0: continue
-        old_price = float(history.get(game_id, 999.99))
-
-        if game_id not in history or current_price < old_price:
-            deal['genre'] = get_detailed_genres(deal['title'])
-            if float(deal['savings']) >= 80:
-                categorized_games["🔥 ดีลลดหนัก (80% ขึ้นไป)"].append(deal)
-            else:
-                categorized_games["📉 ดีลใหม่น่าสนใจ"].append(deal)
-            new_history[game_id] = current_price
-            sent_count += 1
-
-    for category, games in categorized_games.items():
-        for game in games:
-            embed = discord.Embed(
-                title=game['title'],
-                description=f"**หมวดหมู่:** {category}\n**แนวเกม:** {game['genre']}",
-                color=0xFF4500 if "ลดหนัก" in category else 0x3498db,
-                url=f"https://www.cheapshark.com/redirect?dealID={game['dealID']}"
-            )
-            embed.add_field(name="💰 ราคาลดเหลือ", value=f"**${game['salePrice']}**", inline=True)
-            embed.add_field(name="💵 ราคาปกติ", value=f"~~${game['normalPrice']}~~", inline=True)
-            embed.add_field(name="📉 ส่วนลด", value=f"**{float(game['savings']):.0f}%**", inline=True)
-            embed.set_image(url=game['thumb'])
-            embed.set_footer(text=f"ตรวจพบเมื่อ: {time_str} | ข้อมูลจาก CheapShark")
-            await channel.send(embed=embed)
-
-    # --- แก้ไขส่วนนี้ให้รันผ่าน 100% ---
-    status_embed = discord.Embed(title="🤖 Bot Status: Online", color=0x2ecc71)
-    
-    msg = f"🔍 **ตรวจสอบรอบที่:** {time_str}\n📅 **วันที่:** {date_str}\n\n"
-    if sent_count > 0:
-        msg += f"✅ **พบดีลลดราคาใหม่ {sent_count} รายการ!**"
-    else:
-        msg += "✅ **ไม่มีดีลลดราคาใหม่ในรอบนี้ครับ**"
-    
-    status_embed.description = msg
-    status_embed.set_footer(text="ระบบเฝ้าดูดีลลดราคาให้คุณตลอด 24 ชม.")
-    
-    await channel.send(embed=status_embed)
-    save_history(new_history)
-    await client.close()
-
-client.run(TOKEN)
+        current_
