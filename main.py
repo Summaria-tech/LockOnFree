@@ -2,11 +2,12 @@ import discord
 from discord.ext import commands
 import requests
 import os
+import re  # <--- ต้องมีบรรทัดนี้ ไม่งั้นบอทจะ Error ตรง re.sub
 
 # --- ดึงค่าจาก GitHub Secrets ---
 TOKEN = os.getenv('DISCORD_BOT_TOKEN')
 CHANNEL_ID = int(os.getenv('DISCORD_CHANNEL_ID')) if os.getenv('DISCORD_CHANNEL_ID') else None
-RAWG_KEY = os.getenv('RAWG_API_KEY') # อย่าลืมไปใส่ใน GitHub Secrets นะครับ
+RAWG_KEY = os.getenv('RAWG_API_KEY')
 DB_FILE = 'sent_games.txt'
 
 def get_sent_games():
@@ -21,18 +22,19 @@ def save_sent_game(game_id):
         f.write(f"{game_id}\n")
 
 def get_genres_from_rawg(game_name):
-    """ดึงแนวเกมทั้งหมดที่ RAWG มี โดยไม่จำกัดแค่ 1-2 อัน"""
+    """ดึงแนวเกมทั้งหมดที่ RAWG มี โดยล้างชื่อเกมให้สะอาดก่อนค้นหา"""
     if not RAWG_KEY: return []
     try:
-        # ล้างชื่อเกมให้สะอาดที่สุดเพื่อให้ค้นหาแม่นยำ
-        clean_name = re.sub(r'\(.*?\)|[^\w\s]', '', game_name).strip()
+        # ล้างชื่อเกม: ตัด (Steam), Giveaway, และอักขระพิเศษออกเพื่อให้ RAWG หาเจอ
+        clean_name = re.sub(r'\(.*?\)|(?i)giveaway|free|download|pack', '', game_name)
+        clean_name = re.sub(r'[^\w\s]', '', clean_name).strip()
+        
         url = f"https://api.rawg.io/api/games?key={RAWG_KEY}&search={clean_name}&page_size=1"
         res = requests.get(url, timeout=5).json()
         
         if res.get('results'):
-            # ดึง Genres ทั้งหมดที่มีในรายการแรกที่เจอ (เช่น Action, Adventure, Indie)
-            all_genres = [g['name'] for g in res['results'][0].get('genres', [])]
-            return all_genres
+            # ดึง Genres ทั้งหมด (Action, Adventure, Indie ฯลฯ)
+            return [g['name'] for g in res['results'][0].get('genres', [])]
     except Exception as e:
         print(f"RAWG Error: {e}")
     return []
@@ -41,13 +43,13 @@ def get_detailed_genres(game):
     title = game.get('title', '')
     desc = game.get('description', '').lower()
     
-    # 1. ตรวจสอบว่าเป็น Full Game หรือ DLC (ห้ามหาย!)
+    # 1. ตรวจสอบประเภท (Full Game / DLC)
     g_type = "Full Game" if game.get('type') == "Game" else game.get('type', 'Full Game')
     
-    # 2. ดึงแนวจาก RAWG (เอามาให้หมด)
+    # 2. ดึงแนวจาก RAWG
     rawg_genres = get_genres_from_rawg(title)
     
-    # 3. แผนสำรอง: สแกน Keyword จากคำอธิบาย (เผื่อ RAWG ข้อมูลไม่ครบ)
+    # 3. แผนสำรอง: สแกน Keyword
     backup_genres = []
     keywords = {
         "Action": ["action", "fighting", "hack"],
@@ -62,19 +64,19 @@ def get_detailed_genres(game):
         if any(key in desc or key in title.lower() for key in keys):
             backup_genres.append(genre)
 
-    # 4. รวมข้อมูลทั้งหมดเข้าด้วยกัน และลบตัวซ้ำ
+    # 4. รวมข้อมูลและลบตัวซ้ำ
     combined = rawg_genres + backup_genres
     final_list = []
     for item in combined:
         if item not in final_list:
             final_list.append(item)
 
-    # แสดงผล: Full Game | Action | Adventure | Indie (ดึงมาสูงสุด 5 แนว)
     if final_list:
         return f"{g_type} | {' | '.join(final_list[:5])}"
     
     return g_type
 
+# --- ส่วนของ Discord Bot (คงเดิมตามที่คุณส่งมา) ---
 class ClaimView(discord.ui.View):
     def __init__(self, url):
         super().__init__(timeout=None)
@@ -92,7 +94,6 @@ async def check_and_send(bot):
         for game in reversed(games[:5]):
             game_id = str(game['id'])
             if game_id not in sent_ids:
-                # ดึง Genre แบบละเอียด (Full Game + RAWG Genres)
                 genre_list = get_detailed_genres(game)
                 
                 embed = discord.Embed(
@@ -122,5 +123,3 @@ async def on_ready():
 if __name__ == "__main__":
     if TOKEN and CHANNEL_ID:
         bot.run(TOKEN)
-
-
