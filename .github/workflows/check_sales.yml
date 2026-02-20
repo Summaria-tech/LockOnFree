@@ -35,13 +35,14 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           
-          # 1. บันทึก (Stage) ไฟล์ที่เปลี่ยนไปก่อน
+          # 1. บันทึกไฟล์ที่เราสร้างไว้ก่อน
           git add sale_history.json
           
-          # 2. ทำการ Stash หรือ Commit ไว้ชั่วคราวเพื่อให้ Pull ได้
-          git commit -m "Temp commit for rebase" || echo "No changes to commit"
+          # 2. ทำการ Commit ไว้ (แต่ยังไม่ Push)
+          git commit -m "Update sale history [skip ci]" || echo "No changes"
           
-          # 3. ดึงข้อมูลล่าสุดมาจาก Server และวางไฟล์เราต่อท้าย (Rebase)
+          # 3. ดึงข้อมูลล่าสุดจาก Server มาแทรก (Rebase) 
+          # บรรทัดนี้สำคัญมาก ป้องกันการขัดแย้งกับบอทเกมฟรี
           git pull --rebase origin main
           
           # 4. ส่งข้อมูลขึ้นไป
