@@ -13,38 +13,35 @@ def save_sent_game(game_id):
     with open(DB_FILE, 'a') as f: f.write(f"{game_id}\n")
 
 def get_smart_genre(game):
-    """วิเคราะห์แนวเกมจากทั้ง Steam Tags และ Description ของค่ายอื่น"""
     desc = game['description'].lower()
     url = game['open_giveaway_url']
     
-    # 1. ถ้าเป็น Steam ให้ลองไปขูด Tags มาก่อน
+    # 1. ลองดึงจาก Steam (ลดเวลาเหลือ 3 วินาทีเพื่อความเร็ว)
     if "steampowered.com" in url:
         try:
+            print(f"🔍 ส่องแนวเกมจาก Steam: {game['title']}")
             headers = {'User-Agent': 'Mozilla/5.0', 'Cookie': 'birthtime=283993201; lastseenprev=1; steamCountry=TH'}
-            res = requests.get(url, headers=headers, timeout=5)
-            soup = BeautifulSoup(res.text, 'html.parser')
-            tags = [tag.get_text().strip() for tag in soup.find_all('a', {'class': 'app_tag'})[:4]]
-            if tags: return ", ".join(tags)
-        except: pass
+            res = requests.get(url, headers=headers, timeout=3)
+            if res.status_code == 200:
+                soup = BeautifulSoup(res.text, 'html.parser')
+                tags = [tag.get_text().strip() for tag in soup.find_all('a', {'class': 'app_tag'})[:4]]
+                if tags: return ", ".join(tags)
+        except Exception as e:
+            print(f"⚠️ ส่อง Steam ไม่สำเร็จ: {e}")
 
-    # 2. ถ้าไม่ใช่ Steam หรือดึงไม่ได้ ให้ใช้ระบบ Keyword Mapping (ครอบคลุมทุกค่าย)
+    # 2. ระบบสำรอง (Smart Keyword)
     keywords = {
-        "สวมบทบาท (RPG)": ["rpg", "role-playing", "souls", "level up"],
-        "แอคชั่น (Action)": ["action", "hack", "slash", "fighting", "combat"],
-        "ผจญภัย (Adventure)": ["adventure", "puzzle", "narrative", "visual novel", "2d"],
-        "วางแผน (Strategy)": ["strategy", "tactic", "moba", "card", "tower defense"],
-        "จำลองสถานการณ์ (Simulation)": ["simulation", "sim", "management", "building", "sandbox"],
-        "ยิง (Shooting)": ["shooter", "fps", "tps", "gun", "warfare"],
-        "สยองขวัญ (Horror)": ["horror", "scary", "spooky", "survival horror"],
-        "เอาชีวิตรอด (Survival)": ["survival", "crafting", "open world"]
+        "สวมบทบาท (RPG)": ["rpg", "role-playing", "souls"],
+        "แอคชั่น (Action)": ["action", "hack", "slash", "fighting"],
+        "ผจญภัย (Adventure)": ["adventure", "puzzle", "narrative", "2d"],
+        "วางแผน (Strategy)": ["strategy", "tactic", "moba", "card"],
+        "จำลองสถานการณ์ (Simulation)": ["simulation", "sim", "management", "building"],
+        "ยิง (Shooting)": ["shooter", "fps", "tps", "gun"],
+        "สยองขวัญ (Horror)": ["horror", "scary"],
+        "เอาชีวิตรอด (Survival)": ["survival", "open world"]
     }
-
-    found_genres = []
-    for genre, keys in keywords.items():
-        if any(k in desc for k in keys):
-            found_genres.append(genre)
-    
-    return ", ".join(found_genres) if found_genres else f"อื่นๆ ({game['type']})"
+    found = [g for g, keys in keywords.items() if any(k in desc for k in keys)]
+    return ", ".join(found) if found else f"อื่นๆ ({game['type']})"
 
 def send_to_discord(game):
     genre_display = get_smart_genre(game)
@@ -54,7 +51,7 @@ def send_to_discord(game):
         "embeds": [{
             "title": f"🎮 {game['title']}",
             "url": game['open_giveaway_url'],
-            "color": 2303786, # สีเทาเข้มโทนเกมมิ่ง
+            "color": 2303786,
             "thumbnail": {"url": img_url}, 
             "fields": [
                 {"name": "📂 แนวเกม", "value": f"`{genre_display}`", "inline": False},
@@ -65,7 +62,8 @@ def send_to_discord(game):
             "footer": {"text": "Multi-Platform Game Tracker • GamerPower"}
         }]
     }
-    requests.post(WEBHOOK_URL, json=payload)
+    r = requests.post(WEBHOOK_URL, json=payload)
+    print(f"🚀 ส่งเข้า Discord: {game['title']} (Status: {r.status_code})")
 
 def check_and_run():
     sent_ids = get_sent_games()
@@ -74,12 +72,16 @@ def check_and_run():
         res = requests.get(api_url)
         if res.status_code == 200:
             games = res.json()
-            for game in reversed(games[:5]): # รัน 5 เกมล่าสุด
-                if str(game['id']) not in sent_ids:
+            # ตรวจสอบ 5 เกมล่าสุด
+            for game in reversed(games[:5]):
+                game_id = str(game['id'])
+                if game_id not in sent_ids:
                     send_to_discord(game)
-                    save_sent_game(str(game['id']))
+                    save_sent_game(game_id)
+                else:
+                    print(f"⏭️ ข้ามเกมเดิม: {game['title']}")
     except Exception as e:
-        print(f"Error: {e}")
+        print(f"❌ Error: {e}")
 
 if __name__ == "__main__":
     if WEBHOOK_URL: check_and_run()
