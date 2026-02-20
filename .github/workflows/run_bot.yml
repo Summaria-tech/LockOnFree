@@ -1,0 +1,34 @@
+name: Run Game Bot Hourly
+
+on:
+  schedule:
+    - cron: '0 * * * *' # สั่งรันทุกต้นชั่วโมง (เช่น 13:00, 14:00)
+  workflow_dispatch:      # ปุ่มกดรันเองด้วยมือ (สำหรับทดสอบ)
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run Bot
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }} # ดึงความลับจากที่เราตั้งในข้อ 4
+        run: python main.py
+
+      - name: Commit and Push changes
+        run: |
+          git config --global user.name "GitHub Action"
+          git config --global user.email "action@github.com"
+          git add sent_games.txt
+          git commit -m "Update history" || exit 0
+          git push
