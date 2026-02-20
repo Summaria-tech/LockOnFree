@@ -11,11 +11,6 @@ CHANNEL_ID = int(os.getenv('DISCORD_SALE_CHANNEL_ID'))
 RAWG_API_KEY = os.getenv('RAWG_API_KEY')
 HISTORY_FILE = "sale_history.json"
 
-STORES = {
-    "1": "Steam", "2": "GamersGate", "3": "GreenManGaming", "7": "GOG",
-    "11": "Humble Store", "25": "Epic Games Store", "31": "Blizzard Shop"
-}
-
 def get_genres_from_rawg(game_name):
     if not RAWG_API_KEY: return []
     try:
@@ -53,24 +48,13 @@ def get_detailed_genres(game_title):
 def load_history():
     if os.path.exists(HISTORY_FILE):
         with open(HISTORY_FILE, "r") as f:
-            try: 
-                data = json.load(f)
-                print(f"Loaded history: {len(data)} items") # เพิ่มบรรทัดนี้เพื่อเช็ค
-                return data
-            except: 
-                print("History file is empty or corrupted")
-                return {}
-    print("History file not found, creating new one")
+            try: return json.load(f)
+            except: return {}
     return {}
 
 def save_history(history):
     with open(HISTORY_FILE, "w") as f:
         json.dump(history, f, indent=4)
-
-def get_sales():
-    url = "https://www.cheapshark.com/api/1.0/deals?upperPrice=15&onSale=1&pageSize=10"
-    try: return requests.get(url).json()
-    except: return []
 
 client = discord.Client(intents=discord.Intents.default())
 
@@ -82,98 +66,47 @@ async def on_ready():
         return
 
     history = load_history()
-    deals = get_sales()
     new_history = history.copy()
     
+    # ดึงข้อมูลดีลจาก Steam (StoreID=1) สูงสุด 60 เกม
+    url = "https://www.cheapshark.com/api/1.0/deals?storeID=1&upperPrice=15&pageSize=60"
+    try:
+        res = requests.get(url)
+        deals = res.json()
+    except:
+        await client.close()
+        return
+
     now_th = datetime.utcnow() + timedelta(hours=7)
     time_str = now_th.strftime("%H:%M")
     date_str = now_th.strftime("%d/%m/%Y")
     
-    categorized_games = {"🔥 ดีลลดหนัก (80% ขึ้นไป)": [], "📉 ดีลใหม่น่าสนใจ": []}
     sent_count = 0
-    free_games_skipped = 0
-    # เพิ่ม page_size=50 หรือ 100 เพื่อให้ได้ข้อมูลเยอะขึ้น
-url = "https://www.cheapshark.com/api/1.0/deals?storeID=1&upperPrice=10&pageSize=50"
-res = requests.get(url)
-deals = res.json()
 
-for deal in deals:
-    savings = float(deal['savings'])
-    price_usd = float(deal['salePrice'])
-    price_thb = price_usd * 35 # แปลงเป็นบาท
-    
-    # เงื่อนไขคุณ: ลด 70% ขึ้นไป OR ราคาต่ำกว่า 300 บาท
-    if savings >= 70 or price_thb < 300:
-        # สั่งส่งข้อความ...
     for deal in deals:
         game_id = deal['gameID']
         current_price_usd = float(deal['salePrice'])
         savings = float(deal['savings'])
-        store_id = deal['storeID']
-        
-        # 1. กรองเอาเฉพาะ Steam (StoreID "1")
-        if store_id != "1":
-            continue
+        price_thb = current_price_usd * 35 # แปลงค่าเงินบาทคร่าวๆ
 
-        # 2. แปลงราคาเป็นบาทโดยประมาณ (สมมติ $1 = 35 บาท)
-        price_thb = current_price_usd * 35
-
-        # 3. เช็คเงื่อนไข: ลด >= 70% หรือ ราคา < 300 บาท
+        # เงื่อนไข: ลด 70% ขึ้นไป OR ราคาไทยไม่เกิน 300 บาท
         if savings >= 70 or price_thb < 300:
             
-            # เช็คประวัติว่าเคยส่งหรือยัง หรือราคาถูกลงกว่าเดิมไหม
+            # เช็คว่าเคยส่งไปหรือยัง (หรือราคาถูกลงกว่าเดิม)
             old_price = float(history.get(game_id, 999.99))
             if game_id not in history or current_price_usd < old_price:
                 
-                deal['genre'] = get_detailed_genres(deal['title'])
-                deal['platform'] = "Steam 🎮"
+                genre_text = get_detailed_genres(deal['title'])
                 
-                # จัดหมวดหมู่ตามความแรงของดีล
-                if savings >= 90:
-                    category = "🚀 ดีลลดล้างสต๊อก (90%+)"
-                elif savings >= 70:
-                    category = "🔥 ดีลลดหนัก (70%+)"
-                else:
-                    category = "💰 ดีลราคาประหยัด (< 300.-)"
+                # เลือกสีตามความแรงของดีล
+                embed_color = 0xff0000 if savings >= 85 else 0x2ecc71
                 
-                # ... (ส่วนส่ง Embed เหมือนเดิม) ...
-                new_history[game_id] = current_price_usd
-                sent_count += 1
-
-    # ส่งดีลใหม่ (ถ้ามี)
-    for category, games in categorized_games.items():
-        for game in games:
-            desc_content = f"**สถานะ:** {category}\n**แพลตฟอร์ม:** {game['platform']}\n**แนวเกม:** {game['genre']}"
-            embed = discord.Embed(
-                title=game['title'],
-                description=desc_content,
-                color=0xFF4500 if "ลดหนัก" in category else 0x3498db,
-                url=f"https://www.cheapshark.com/redirect?dealID={game['dealID']}"
-            )
-            embed.add_field(name="💰 ราคาลดเหลือ", value=f"**${game['salePrice']}**", inline=True)
-            embed.add_field(name="💵 ราคาปกติ", value=f"~~${game['normalPrice']}~~", inline=True)
-            embed.add_field(name="📉 ส่วนลด", value=f"**{float(game['savings']):.0f}%**", inline=True)
-            embed.set_image(url=game['thumb'])
-            embed.set_footer(text=f"ตรวจพบเมื่อ: {time_str} | ข้อมูลจาก CheapShark")
-            await channel.send(embed=embed)
-
-    # --- ส่วนรายงาน Status (แก้ให้รันได้จริง) ---
-    skipped_count = len(deals) - sent_count - free_games_skipped
-    status_embed = discord.Embed(title="🤖 Bot Status: Online", color=0x2ecc71)
-    
-    msg = f"🔍 **ตรวจสอบรอบที่:** {time_str}\n📅 **วันที่:** {date_str}\n\n"
-    if sent_count > 0:
-        msg += f"✅ **พบดีลลดราคาใหม่ {sent_count} รายการ!**\n"
-    else:
-        msg += "✅ **ตรวจสอบแล้ว: ยังไม่มีดีลที่ถูกลงกว่าเดิม**\n"
-    
-    msg += f"🏠 **เฝ้าดูอยู่:** {skipped_count} เกม (ราคายังไม่ลดเพิ่ม)"
-    
-    status_embed.description = msg
-    status_embed.set_footer(text="ระบบเฝ้าดูดีลลดราคาให้คุณตลอด 24 ชม.")
-    await channel.send(embed=status_embed)
-
-    save_history(new_history)
-    await client.close()
-
-client.run(TOKEN)
+                embed = discord.Embed(
+                    title=f"🎮 {deal['title']}",
+                    url=f"https://www.cheapshark.com/redirect?dealID={deal['dealID']}",
+                    color=embed_color
+                )
+                
+                embed.add_field(name="💰 ราคาไทยโดยประมาณ", value=f"**฿{price_thb:,.2f}**", inline=True)
+                embed.add_field(name="📉 ส่วนลด", value=f"**{savings:.0f}%**", inline=True)
+                embed.add_field(name="💵 ราคาเดิม", value=f"~~${deal['normalPrice']}~~", inline=
