@@ -2,12 +2,14 @@ name: Run Game Bot Hourly
 
 on:
   schedule:
-    - cron: '0 * * * *' # สั่งรันทุกต้นชั่วโมง (เช่น 13:00, 14:00)
-  workflow_dispatch:      # ปุ่มกดรันเองด้วยมือ (สำหรับทดสอบ)
+    - cron: '0 * * * *' # สั่งรันทุกต้นชั่วโมง
+  workflow_dispatch:      # ปุ่มกดรันเองด้วยมือ
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write    # เพิ่มบรรทัดนี้เพื่อความชัวร์เรื่องสิทธิ์การเซฟไฟล์
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -18,11 +20,13 @@ jobs:
           python-version: '3.9'
 
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
 
       - name: Run Bot
         env:
-          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }} # ดึงความลับจากที่เราตั้งในข้อ 4
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
         run: python main.py
 
       - name: Commit and Push changes
