@@ -26,8 +26,16 @@ jobs:
         env:
           DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
           DISCORD_CHANNEL_ID: ${{ secrets.DISCORD_CHANNEL_ID }}
-          RAWG_API_KEY: ${{ secrets.RAWG_API_KEY }} # << เพิ่มบรรทัดนี้เพื่อให้โค้ดดึงคีย์ไปใช้ได้
+          RAWG_API_KEY: ${{ secrets.RAWG_API_KEY }} # เพิ่มบรรทัดนี้เพื่อดึงแนวเกม
         run: python main.py
+
+      - name: Commit and Push changes
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add sent_games.txt
+          git commit -m "Update sent games history" || exit 0
+          git push origin main
         
       - name: Commit and Push changes
         run: |
