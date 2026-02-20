@@ -19,11 +19,14 @@ jobs:
         with:
           python-version: '3.9'
 
-      - name: Run Bot
+      - name: Install dependencies
+        run: pip install discord.py requests beautifulsoup4
+
+      - name: Run bot
         env:
           DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
           DISCORD_CHANNEL_ID: ${{ secrets.DISCORD_CHANNEL_ID }}
-        run: pip install discord.py requests beautifulsoup4
+        run: python main.py
 
       - name: Commit and Push changes
         run: |
