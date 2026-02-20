@@ -98,15 +98,21 @@ async def check_and_send(bot):
                 new_game_count += 1
                 print(f"✅ Sent: {game['title']}")
 
+    # --- ส่วนที่ต้องแก้ในฟังก์ชัน check_and_send ---
     if new_game_count == 0:
+        # ดึงเวลาปัจจุบัน (UTC) และปรับเป็นเวลาไทย (UTC+7)
+        now_th = datetime.utcnow() + timedelta(hours=7)
+        time_str = now_th.strftime("%H:%M")          # เวลาเช่น 19:00
+        date_str = now_th.strftime("%d/%m/%Y")       # วันที่เช่น 20/02/2026
+        
         status_embed = discord.Embed(
             title="🤖 Bot Status: Online",
-            description="🔍 ตรวจสอบแล้ว: **ไม่มีเกมฟรีใหม่เพิ่มมาในรอบชั่วโมงนี้ครับ**",
+            description=f"🔍 ตรวจสอบรอบที่: **{time_str}**\n📅 วันที่: **{date_str}**\n\n✅ **ไม่มีเกมฟรีใหม่เพิ่มมาในรอบนี้ครับ**",
             color=0x2f3136
         )
         status_embed.set_footer(text="ระบบยังคงเฝ้าดูเกมใหม่ให้คุณอยู่ตลอด 24 ชม.")
-        await channel.send(embed=status_embed, delete_after=3600)
-        print("🔍 Status: No new games found.")
+        await channel.send(embed=status_embed, delete_after=3500) # ลบก่อนรอบถัดไปเล็กน้อย
+        print(f"🔍 Status: No new games found at {time_str}")
 
 intents = discord.Intents.default()
 bot = commands.Bot(command_prefix="!", intents=intents)
@@ -120,4 +126,5 @@ async def on_ready():
 if __name__ == "__main__":
     if TOKEN and CHANNEL_ID:
         bot.run(TOKEN)
+
 
