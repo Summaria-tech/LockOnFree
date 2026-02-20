@@ -26,8 +26,9 @@ jobs:
         env:
           DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
           DISCORD_CHANNEL_ID: ${{ secrets.DISCORD_CHANNEL_ID }}
+          RAWG_API_KEY: ${{ secrets.RAWG_API_KEY }} # << เพิ่มบรรทัดนี้เข้าไป!
         run: python main.py
-
+        
       - name: Commit and Push changes
         run: |
           git config --global user.name "GitHub Action"
