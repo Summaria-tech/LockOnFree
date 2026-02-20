@@ -9,14 +9,25 @@ jobs:
   build:
     runs-on: ubuntu-latest
     permissions:
-      contents: write # อนุญาตให้เขียนข้อมูลลงใน Repo ได้
+      contents: write
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
         with:
           token: ${{ secrets.MY_GITHUB_TOKEN }}
-          fetch-depth: 0 # ดึงประวัติทั้งหมดเพื่อป้องกันการชนกันของไฟล์
+          fetch-depth: 0 
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+          cache: 'pip' # ช่วยจำ Library ที่เคยลงไว้
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install discord.py requests beautifulsoup4
 
       - name: Run bot
         env:
@@ -30,13 +41,10 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           
-          # ขั้นตอนสำคัญ: รวมไฟล์ประวัติจาก GitHub เข้ากับไฟล์ที่บอทเพิ่งเขียน
-          git add sent_games.txt
-          git stash # เก็บไฟล์ที่บอทเขียนไว้ชั่วคราว
-          git pull origin main --rebase # ดึงข้อมูลล่าสุดจาก GitHub มาวางรอ
-          git stash pop # เอาข้อมูลที่บอทเขียนไปวางทับ/ต่อท้าย
+          # ดึงไฟล์ล่าสุดมาเช็คก่อน
+          git fetch origin main
+          git checkout origin/main -- sent_games.txt || echo "First time, no file."
           
           git add sent_games.txt
           git commit -m "Update history [skip ci]" || exit 0
           git push origin main
-          
