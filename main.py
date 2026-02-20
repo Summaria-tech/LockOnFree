@@ -22,47 +22,48 @@ def save_sent_game(game_id):
     with open(DB_FILE, 'a') as f:
         f.write(f"{game_id}\n")
 
-def get_detailed_genres(game):
-    """ดึงแนวเกมแบบเจาะลึก: พยายามดึงจาก Steam ก่อน ถ้าไม่ได้ให้สแกนจากคำอธิบาย"""
+ddef get_detailed_genres(game):
+    """ดึงทั้งประเภทการแจก (Full Game/DLC) และแนวเกม (Action/RPG) มาแสดงคู่กัน"""
     url = game.get('open_giveaway_url', '')
     description = game.get('description', '').lower()
     
-    # 1. พยายามดึงจาก Steam Tags
+    # 1. กำหนดประเภทหลัก (Full Game หรือ DLC)
+    g_type = game.get('type', 'Game')
+    if g_type == "Game": g_type = "Full Game"
+    
+    # 2. พยายามดึงแนวเกม (Action, RPG, etc.) จาก Steam Tags
+    found_genres = []
     if "steampowered.com" in url:
         try:
-            headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36', 'Cookie': 'birthtime=283993201; steamCountry=TH'}
+            headers = {'User-Agent': 'Mozilla/5.0', 'Cookie': 'birthtime=283993201; steamCountry=TH'}
             res = requests.get(url, headers=headers, timeout=5)
             if res.status_code == 200:
                 soup = BeautifulSoup(res.text, 'html.parser')
-                tags = [tag.get_text().strip() for tag in soup.find_all('a', {'class': 'app_tag'})[:5]]
-                if tags: return " | ".join(tags)
+                tags = [tag.get_text().strip() for tag in soup.find_all('a', {'class': 'app_tag'})[:3]]
+                found_genres.extend(tags)
         except: pass
 
-    # 2. ถ้าดึงจากเว็บไม่ได้ ให้สแกนหา Keywords ในคำอธิบายเองเลย (อ้างอิงตามที่คุณลิสต์มา)
-    keywords = {
-        "Action": ["action", "fast-paced", "fighting", "hack and slash"],
-        "Adventure": ["adventure", "exploration", "story-driven"],
-        "RPG": ["rpg", "role-playing", "level up", "jrpg", "arpg"],
-        "Strategy": ["strategy", "rts", "turn-based", "moba", "tactic"],
-        "Simulation": ["simulation", "simulator", "building", "management"],
-        "Shooting": ["shooting", "fps", "tps", "shooter"],
-        "Horror": ["horror", "scary", "survival horror"],
-        "Online": ["mmorpg", "mmo", "online multiplayer"],
-        "Racing": ["racing", "driving", "cars"],
-        "Platformer": ["platformer", "2d retro", "jumping"]
-    }
-    
-    found_genres = []
-    for genre, keys in keywords.items():
-        if any(key in description for key in keys):
-            found_genres.append(genre)
-    
+    # 3. ถ้าดึงจาก Steam ไม่ได้ ให้สแกนคำใน description (Action, RPG, Shooting, etc.)
+    if not found_genres:
+        keywords = {
+            "Action": ["action", "fighting", "hack and slash"],
+            "RPG": ["rpg", "role-playing", "arpg", "jrpg"],
+            "Strategy": ["strategy", "tactic", "rts"],
+            "Shooting": ["shooting", "fps", "tps", "shooter"],
+            "Adventure": ["adventure", "exploration"],
+            "Horror": ["horror", "scary"]
+        }
+        for genre, keys in keywords.items():
+            if any(key in description for key in keys):
+                found_genres.append(genre)
+
+    # 4. รวมข้อมูลทั้งหมดเข้าด้วยกัน
     if found_genres:
-        return " | ".join(found_genres[:3]) # เอาแค่ 3 อันเด่นๆ
+        # ผลลัพธ์จะเป็นเช่น: Full Game | Action | RPG
+        unique_genres = list(dict.fromkeys(found_genres)) # ลบแนวที่ซ้ำออก
+        return f"{g_type} | {' | '.join(unique_genres[:3])}"
     
-    # 3. สุดท้ายถ้าไม่เจอจริงๆ ให้ใช้ค่าจาก API แต่ถ้าเป็นคำว่า Game ให้เปลี่ยนเป็น Giveaway แทน
-    api_type = game.get('type', 'Game')
-    return api_type if api_type != "Game" else "Full Game"
+    return g_type # ถ้าหาแนวไม่เจอจริงๆ ให้ส่งแค่ Full Game หรือ DLC
 
 # --- สร้างปุ่มกด Link Button ---
 class ClaimView(discord.ui.View):
@@ -119,3 +120,4 @@ async def on_ready():
 if __name__ == "__main__":
     if TOKEN and CHANNEL_ID:
         bot.run(TOKEN)
+
