@@ -8,15 +8,18 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write # อนุญาตให้เขียนข้อมูลลงใน Repo ได้
+
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3 # อัปเดตเป็น v3
+        uses: actions/checkout@v3
         with:
-          token: ${{ secrets.MY_GITHUB_TOKEN }} # ใช้ Token ที่เราเพิ่งสร้าง
+          token: ${{ secrets.MY_GITHUB_TOKEN }}
           persist-credentials: true
 
       - name: Set up Python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v4 # แนะนำ v4 เพื่อความเสถียร
         with:
           python-version: '3.9'
 
@@ -27,13 +30,19 @@ jobs:
         env:
           DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
           DISCORD_CHANNEL_ID: ${{ secrets.DISCORD_CHANNEL_ID }}
-          RAWG_API_KEY: ${{ secrets.RAWG_API_KEY }} # ต้องมีบรรทัดนี้บอทถึงจะดึง Genre ได้
+          RAWG_API_KEY: ${{ secrets.RAWG_API_KEY }}
         run: python main.py
 
       - name: Commit and Push History
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git add sent_games.txt
-          git commit -m "Update sent games history [skip ci]" || exit 0
+          
+          # ดึงข้อมูลล่าสุดลงมาก่อนเพื่อป้องกัน Conflict
+          git pull origin main 
+          
+          # เพิ่มเฉพาะไฟล์ sent_games.txt เท่านั้น ห้ามใส่ git add .
+          git add sent_games.txt 
+          
+          git commit -m "Update history [skip ci]" || exit 0
           git push origin main
