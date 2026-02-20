@@ -22,18 +22,14 @@ def get_genre_thai(description, game_type):
 
 def send_to_discord(game):
     genre_thai = get_genre_thai(game['description'], game['type'])
-    img = game.get('thumbnail', '')
+    img_url = game.get('thumbnail', '')
     
     payload = {
         "embeds": [{
-            "author": {
-                "name": "Game Free Notification",
-                "icon_url": img # รูปจิ๋วหน้าชื่อ
-            },
             "title": f"🎮 {game['title']}",
             "url": game['open_giveaway_url'],
             "color": 3066993,
-            "thumbnail": {"url": img}, # รูปเล็กด้านข้าง
+            "thumbnail": {"url": img_url}, # ส่งรูปเล็กด้านข้าง
             "description": (
                 f"**📂 แนวเกม:** `{genre_thai}`\n"
                 f"**💻 แพลตฟอร์ม:** {game['platforms']}\n"
@@ -44,7 +40,12 @@ def send_to_discord(game):
             "footer": {"text": "GamerPower Updates"}
         }]
     }
+    
+    # ส่งข้อมูลหลัก
     requests.post(WEBHOOK_URL, json=payload)
+    
+    # ท่าไม้ตาย: ถ้าส่ง Embed แล้วรูปไม่ขึ้น ให้ส่งลิงก์รูปตามไปทื่อๆ เลย Discord จะบังคับโชว์รูปครับ
+    # requests.post(WEBHOOK_URL, json={"content": img_url}) # เปิดบรรทัดนี้ถ้าอยากให้ส่งรูปแยกด้านล่าง
 
 def check_and_run():
     sent_ids = get_sent_games()
@@ -62,3 +63,4 @@ def check_and_run():
 
 if __name__ == "__main__":
     if WEBHOOK_URL: check_and_run()
+
