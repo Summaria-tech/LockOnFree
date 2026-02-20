@@ -30,7 +30,7 @@ def get_genres_from_rawg(game_name):
         clean_name = re.sub(r'[^\w\s]', '', clean_name).strip()
         
         url = f"https://api.rawg.io/api/games?key={RAWG_KEY}&search={clean_name}&page_size=1"
-        res = requests.get(url, timeout=5).json()
+        res = requests.get(url, timeout=10).json()
         
         if res.get('results'):
             # ดึง Genres ทั้งหมด (Action, Adventure, Indie ฯลฯ)
@@ -93,14 +93,14 @@ async def check_and_send(bot):
     if res.status_code == 200:
         games = res.json()
         # เช็ค 50 เกมล่าสุด
-        for game in reversed(games[:50]):
+        for game in reversed(games[:100]):
             game_id = str(game['id'])
             
             if game_id not in sent_ids:
                 # --- ส่วนที่เพิ่มเข้ามาเพื่อกันบอทส่งซ้ำตอนเริ่มใหม่ ---
                 # ถ้าไฟล์ประวัติมีน้อย (เช่น < 5) ให้ถือว่าเป็นการเซ็ตอัพครั้งแรก 
                 # ให้บันทึก ID ไปเลยโดยไม่ต้องส่ง Discord
-                if len(sent_ids) < 10: 
+                if len(sent_ids) < 50: 
                     save_sent_game(game_id)
                     continue
                 # ----------------------------------------------
@@ -135,6 +135,7 @@ async def on_ready():
 if __name__ == "__main__":
     if TOKEN and CHANNEL_ID:
         bot.run(TOKEN)
+
 
 
 
