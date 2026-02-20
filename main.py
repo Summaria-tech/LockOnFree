@@ -77,8 +77,7 @@ async def check_and_send(bot):
     
     if res.status_code == 200:
         games = res.json()
-        # เช็ค 50 เกมล่าสุด
-        for game in reversed(games[:100]):
+        for game in reversed(games[:50]):
             game_id = str(game['id'])
             if game_id not in sent_ids:
                 genre_list = get_detailed_genres(game)
@@ -91,4 +90,33 @@ async def check_and_send(bot):
                 )
                 embed.set_image(url=game.get('image') or game.get('thumbnail'))
                 embed.add_field(name="💻 Platform", value=f"**{game.get('platforms')}**", inline=True)
-                embed.add_field(name="💰 Worth", value=f"~~{game.
+                embed.add_field(name="💰 Worth", value=f"~~{game.get('worth')}~~ **FREE**", inline=True)
+                embed.set_footer(text="LockOnFree • Click the button below to claim")
+                
+                await channel.send(embed=embed, view=ClaimView(game['open_giveaway_url']))
+                save_sent_game(game_id)
+                new_game_count += 1
+                print(f"✅ Sent: {game['title']}")
+
+    if new_game_count == 0:
+        status_embed = discord.Embed(
+            title="🤖 Bot Status: Online",
+            description="🔍 ตรวจสอบแล้ว: **ไม่มีเกมฟรีใหม่เพิ่มมาในรอบชั่วโมงนี้ครับ**",
+            color=0x2f3136
+        )
+        status_embed.set_footer(text="ระบบยังคงเฝ้าดูเกมใหม่ให้คุณอยู่ตลอด 24 ชม.")
+        await channel.send(embed=status_embed, delete_after=3600)
+        print("🔍 Status: No new games found.")
+
+intents = discord.Intents.default()
+bot = commands.Bot(command_prefix="!", intents=intents)
+
+@bot.event
+async def on_ready():
+    print(f'🤖 {bot.user} Online')
+    await check_and_send(bot)
+    await bot.close()
+
+if __name__ == "__main__":
+    if TOKEN and CHANNEL_ID:
+        bot.run(TOKEN)
