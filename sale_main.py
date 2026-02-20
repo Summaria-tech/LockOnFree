@@ -11,15 +11,28 @@ RAWG_API_KEY = os.getenv('RAWG_API_KEY')
 HISTORY_FILE = "sale_history.json"
 
 def get_game_genre(game_name):
-    url = f"https://api.rawg.io/api/games?key={RAWG_API_KEY}&search={game_name}&page_size=1"
+    # ปรับปรุง: ตัดอักขระพิเศษออกเพื่อให้ค้นหาง่ายขึ้น
+    clean_name = game_name.split(':')[0].split('-')[0].strip()
+    url = f"https://api.rawg.io/api/games?key={RAWG_API_KEY}&search={clean_name}&page_size=1"
+    
     try:
-        response = requests.get(url)
+        response = requests.get(url, timeout=10)
         data = response.json()
         if data['results']:
+            # ดึงแนวเกมหลัก
             genres = [g['name'] for g in data['results'][0].get('genres', [])]
-            return ", ".join(genres) if genres else "General"
-    except: return "Unknown"
-    return "Unknown"
+            if genres:
+                return ", ".join(genres)
+            
+            # ถ้าไม่มีแนวเกม ลองดึง Tag แทน
+            tags = [t['name'] for t in data['results'][0].get('tags', [])[:2]]
+            if tags:
+                return ", ".join(tags)
+                
+        return "General" # ถ้าหาไม่เจอจริงๆ ให้ใช้ General แทน Unknown จะดูดีกว่าครับ
+    except Exception as e:
+        print(f"Genre Error: {e}")
+        return "General"
 
 def load_history():
     if os.path.exists(HISTORY_FILE):
