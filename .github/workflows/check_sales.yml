@@ -1,0 +1,5 @@
+- name: Run Sale Bot
+        env:
+          DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
+          DISCORD_SALE_CHANNEL_ID: ${{ secrets.DISCORD_SALE_CHANNEL_ID }} # ต้องชื่อเดียวกับใน GitHub
+        run: python sale_main.py
