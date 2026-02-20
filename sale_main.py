@@ -10,29 +10,45 @@ CHANNEL_ID = int(os.getenv('DISCORD_SALE_CHANNEL_ID'))
 RAWG_API_KEY = os.getenv('RAWG_API_KEY')
 HISTORY_FILE = "sale_history.json"
 
-def get_game_genre(game_name):
-    # ปรับปรุง: ตัดอักขระพิเศษออกเพื่อให้ค้นหาง่ายขึ้น
-    clean_name = game_name.split(':')[0].split('-')[0].strip()
-    url = f"https://api.rawg.io/api/games?key={RAWG_API_KEY}&search={clean_name}&page_size=1"
-    
+def get_genres_from_rawg(game_name):
+    if not RAWG_KEY: return []
     try:
-        response = requests.get(url, timeout=10)
-        data = response.json()
-        if data['results']:
-            # ดึงแนวเกมหลัก
-            genres = [g['name'] for g in data['results'][0].get('genres', [])]
-            if genres:
-                return ", ".join(genres)
-            
-            # ถ้าไม่มีแนวเกม ลองดึง Tag แทน
-            tags = [t['name'] for t in data['results'][0].get('tags', [])[:2]]
-            if tags:
-                return ", ".join(tags)
-                
-        return "General" # ถ้าหาไม่เจอจริงๆ ให้ใช้ General แทน Unknown จะดูดีกว่าครับ
+        clean_name = re.sub(r'\(.*?\)|(?i)giveaway|free|download|pack', '', game_name)
+        clean_name = re.sub(r'[^\w\s]', '', clean_name).strip()
+        url = f"https://api.rawg.io/api/games?key={RAWG_KEY}&search={clean_name}&page_size=1"
+        res = requests.get(url, timeout=10).json()
+        if res.get('results'):
+            return [g['name'] for g in res['results'][0].get('genres', [])]
     except Exception as e:
-        print(f"Genre Error: {e}")
-        return "General"
+        print(f"RAWG Error: {e}")
+    return []
+
+def get_detailed_genres(game):
+    title = game.get('title', '')
+    desc = game.get('description', '').lower()
+    g_type = "Full Game" if game.get('type') == "Game" else game.get('type', 'Full Game')
+    rawg_genres = get_genres_from_rawg(title)
+    backup_genres = []
+    keywords = {
+        "Action": ["action", "fighting", "hack"],
+        "Adventure": ["adventure", "exploration"],
+        "RPG": ["rpg", "role-playing"],
+        "Strategy": ["strategy", "tactic"],
+        "Shooting": ["shooting", "fps"],
+        "Platformer": ["platformer", "2d", "retro"],
+        "Indie": ["indie", "independent"]
+    }
+    for genre, keys in keywords.items():
+        if any(key in desc or key in title.lower() for key in keys):
+            backup_genres.append(genre)
+    combined = rawg_genres + backup_genres
+    final_list = []
+    for item in combined:
+        if item not in final_list:
+            final_list.append(item)
+    if final_list:
+        return f"{g_type} | {' | '.join(final_list[:5])}"
+    return g_type
 
 def load_history():
     if os.path.exists(HISTORY_FILE):
