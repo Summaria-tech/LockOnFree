@@ -21,10 +21,9 @@ jobs:
 
       - name: Run Bot
         env:
-          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
-        run: |
-          pip install requests beautifulsoup4
-          python main.py
+          DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
+          DISCORD_CHANNEL_ID: ${{ secrets.DISCORD_CHANNEL_ID }}
+        run: pip install discord.py requests beautifulsoup4
 
       - name: Commit and Push changes
         run: |
